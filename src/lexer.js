@@ -1,5 +1,6 @@
 import Token from "./Token.js";
 import Category from "./Category.js";
+import {getCategory} from "./state.js";
 
 const EOF = Symbol("eof");
 const EOL = Symbol("eol");
@@ -96,35 +97,35 @@ function getChar() {
 }
 
 function isSuperscript(c) {
-    return c === "^";
+    return getCategory(c) === Category.Superscript;
 }
 
 function isLetter(c) {
-    return ("a" <= c && c <= "z") || ("A" <= c && c <= "Z");
+    return getCategory(c) === Category.Letter;
 }
 
 function isComment(c) {
-    return c === "%";
+    return getCategory(c) === Category.Comment;
 }
 
 function isEscape(c) {
-    return c === "\\";
+    return getCategory(c) === Category.Escape;
 }
 
 function isIgnored(c) {
-    return c === "\u0000";
+    return getCategory(c) === Category.Ignored;
 }
 
 function isSpace(c) {
-    return c === " ";
+    return getCategory(c) === Category.Space;
 }
 
 function isEndOfLine(c) {
-    return c === "\n";
+    return getCategory(c) === Category.EndOfLine;
 }
 
 function isInvalid(c) {
-    return c === "\u00ff";
+    return getCategory(c) === Category.Invalid;
 }
 
 export function lexToken() {

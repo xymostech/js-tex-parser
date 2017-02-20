@@ -3,6 +3,7 @@ import assert from "assert";
 import Token from "../Token.js";
 import Category from "../Category.js";
 import {startLexing, lexToken} from "../lexer.js";
+import {resetState} from "../state.js";
 
 function assertLexesTo(string, expectedTokens) {
     startLexing(string);
@@ -16,6 +17,10 @@ function assertLexesTo(string, expectedTokens) {
 
     expect(realTokens).toEqual(expectedTokens);
 }
+
+beforeEach(() => {
+    resetState();
+});
 
 describe("lexing basic tokens", () => {
     it("lexes char tokens", () => {
