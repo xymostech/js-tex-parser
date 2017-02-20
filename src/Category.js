@@ -1,0 +1,18 @@
+export default {
+    Escape: Symbol("escape"),
+    BeginGroup: Symbol("begin group"),
+    EndGroup: Symbol("end group"),
+    MathShift: Symbol("math shift"),
+    AlignmentTab: Symbol("alignment tab"),
+    EndOfLine: Symbol("end of line"),
+    Parameter: Symbol("parameter"),
+    Superscript: Symbol("superscript"),
+    Subscript: Symbol("subscript"),
+    Ignored: Symbol("ignored"),
+    Space: Symbol("space"),
+    Letter: Symbol("letter"),
+    Other: Symbol("other"),
+    Active: Symbol("active"),
+    Comment: Symbol("comment"),
+    Invalid: Symbol("invalid"),
+};
