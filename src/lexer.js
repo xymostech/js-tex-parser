@@ -1,5 +1,9 @@
-import Token from "./Token.js";
-import Category from "./Category.js";
+// @flow
+import {Token, CharToken, ControlSequence} from "./Token.js";
+import type {Category} from "./Category.js";
+import {
+    Superscript, Letter, Comment, Escape, Ignored, Space, EndOfLine, Invalid,
+} from "./Category.js";
 import {getCategory} from "./state.js";
 
 const EOF = Symbol("eof");
@@ -9,52 +13,54 @@ const BEGINNING_LINE = Symbol("beginning line");
 const MIDDLE_LINE = Symbol("middle line");
 const SKIPPING_BLANKS = Symbol("skipping blanks");
 
-let input = [];
+let source: string[] = [];
 let state = BEGINNING_LINE;
 
-export function startLexing(text) {
-    input = text.map(line => line + "\n");
+export function setSource(lines: string[]) {
+    source = lines.map(line => line + "\n");
     state = BEGINNING_LINE;
 }
 
-function getPlainChar() {
-    if (input.length === 0) {
+function getPlainChar(): typeof EOF | typeof EOL | string {
+    if (source.length === 0) {
         return EOF;
     }
 
-    const line = input[0];
+    const line = source[0];
 
     if (line.length === 0) {
-        input = input.slice(1);
+        source = source.slice(1);
         return EOL;
     }
 
     const ch = line[0];
-    input[0] = line.slice(1);
+    source[0] = line.slice(1);
     return ch;
 }
 
-function unGetChar(c) {
+function unGetChar(c: typeof EOF | typeof EOL | string) {
     if (c === EOF) {
         return;
-    } else if (input.length === 0) {
-        input = [c];
     } else if (c === EOL) {
-        input.unshift([]);
+        source.unshift("");
+    } else if (source.length === 0) {
+        source = [c];
     } else {
-        input[0] = c + input[0];
+        source[0] = c + source[0];
     }
 }
 
-function isHexChar(c) {
+function isHexChar(c: string): boolean {
     return ("0" <= c && c <= "9") || ("a" <= c && c <= "f");
 }
 
-function hexValue(c) {
+function hexValue(c: string): number {
     if ("0" <= c && c <= "9") {
         return c.charCodeAt(0) - "0".charCodeAt(0);
     } else if ("a" <= c && c <= "f") {
         return c.charCodeAt(0) - "a".charCodeAt(0) + 10;
+    } else {
+        throw new Error(`Invalid hex char: ${c}`);
     }
 }
 
@@ -75,7 +81,9 @@ function getChar() {
                 const nextnext = getPlainChar();
 
                 if (isHexChar(next) && isHexChar(nextnext)) {
-                    unGetChar(String.fromCharCode(hexValue(next) * 16 + hexValue(nextnext)));
+                    unGetChar(
+                        String.fromCharCode(hexValue(next) * 16 +
+                        hexValue(nextnext)));
                     return getChar();
                 } else if (next <= "?") {
                     unGetChar(nextnext);
@@ -97,38 +105,38 @@ function getChar() {
 }
 
 function isSuperscript(c) {
-    return getCategory(c) === Category.Superscript;
+    return getCategory(c) === Superscript;
 }
 
 function isLetter(c) {
-    return getCategory(c) === Category.Letter;
+    return getCategory(c) === Letter;
 }
 
 function isComment(c) {
-    return getCategory(c) === Category.Comment;
+    return getCategory(c) === Comment;
 }
 
 function isEscape(c) {
-    return getCategory(c) === Category.Escape;
+    return getCategory(c) === Escape;
 }
 
 function isIgnored(c) {
-    return getCategory(c) === Category.Ignored;
+    return getCategory(c) === Ignored;
 }
 
 function isSpace(c) {
-    return getCategory(c) === Category.Space;
+    return getCategory(c) === Space;
 }
 
 function isEndOfLine(c) {
-    return getCategory(c) === Category.EndOfLine;
+    return getCategory(c) === EndOfLine;
 }
 
 function isInvalid(c) {
-    return getCategory(c) === Category.Invalid;
+    return getCategory(c) === Invalid;
 }
 
-export function lexToken() {
+export function lexToken(): ?Token {
     const start = getChar();
 
     if (start === EOF) {
@@ -156,32 +164,32 @@ export function lexToken() {
             }
             unGetChar(next);
 
-            return new Token(Token.CONTROL_SEQUENCE, sequence);
+            return new ControlSequence(sequence);
         } else {
-            return new Token(Token.CONTROL_SEQUENCE, next);
+            return new ControlSequence(next);
         }
     } else if (isEndOfLine(start)) {
         if (state === BEGINNING_LINE) {
-            return new Token(Token.CONTROL_SEQUENCE, "par");
+            return new ControlSequence("par");
         } else if (state === MIDDLE_LINE) {
-            return new Token(Token.CHAR_TOKEN, " ", Category.Space);
+            return new CharToken(" ", Space);
         } else if (state === SKIPPING_BLANKS) {
             return lexToken();
         }
     } else if (isSpace(start)) {
         if (state === MIDDLE_LINE) {
             state = SKIPPING_BLANKS;
-            return new Token(Token.CHAR_TOKEN, " ", Category.Space);
+            return new CharToken(" ", Space);
         } else {
             return lexToken();
         }
     } else if (isComment(start)) {
-        input[0] = [];
+        source[0] = "";
         return lexToken();
     } else if (isIgnored(start)) {
         return lexToken();
     } else {
         state = MIDDLE_LINE;
-        return new Token(Token.CHAR_TOKEN, start, Category.Letter);
+        return new CharToken(start, Letter);
     }
 }

@@ -1,29 +1,31 @@
-import Category from "./Category.js";
+// @flow
+import type {Category} from "./Category.js";
+import {Letter, Other, Escape, Ignored, Comment, EndOfLine, Space, Invalid, Superscript} from "./Category.js";
 
-const categoryMap = new Map();
+const categoryMap: Map<string, Category> = new Map();
 
 export function resetState() {
     for (let i = 0; i < 256; i++) {
         const ch = String.fromCharCode(i);
         if (("a" <= ch && ch <= "z") || ("A" <= ch && ch <= "Z")) {
-            categoryMap.set(ch, Category.Letter);
+            categoryMap.set(ch, Letter);
         } else {
-            categoryMap.set(ch, Category.Other);
+            categoryMap.set(ch, Other);
         }
     }
-    categoryMap.set("\\", Category.Escape);
-    categoryMap.set("\u0000", Category.Ignored);
-    categoryMap.set("%", Category.Comment);
-    categoryMap.set("\n", Category.EndOfLine);
-    categoryMap.set(" ", Category.Space);
-    categoryMap.set("\u00ff", Category.Invalid);
+    categoryMap.set("\\", Escape);
+    categoryMap.set("\u0000", Ignored);
+    categoryMap.set("%", Comment);
+    categoryMap.set("\n", EndOfLine);
+    categoryMap.set(" ", Space);
+    categoryMap.set("\u00ff", Invalid);
 
     // TODO(emily): Remove me, these aren't set by default!
-    categoryMap.set("^", Category.Superscript);
+    categoryMap.set("^", Superscript);
 }
 
 resetState();
 
-export function getCategory(c) {
+export function getCategory(c: string): Category | void {
     return categoryMap.get(c);
 }

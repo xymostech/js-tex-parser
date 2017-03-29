@@ -1,12 +1,13 @@
-import assert from "assert";
-
-import Token from "../Token.js";
-import Category from "../Category.js";
-import {startLexing, lexToken} from "../lexer.js";
+// @flow
+/* global expect */
+import {CharToken, ControlSequence} from "../Token.js";
+import * as Category from "../Category.js";
+import {setSource, lexToken} from "../lexer.js";
 import {resetState} from "../state.js";
 
-function assertLexesTo(string, expectedTokens) {
-    startLexing(string);
+function assertLexesTo(lines, expectedTokens) {
+    resetState();
+    setSource(lines);
 
     const realTokens = [];
 
@@ -18,106 +19,105 @@ function assertLexesTo(string, expectedTokens) {
     expect(realTokens).toEqual(expectedTokens);
 }
 
-beforeEach(() => {
-    resetState();
-});
+describe("lexer", () => {
+    describe("lexing basic tokens", () => {
+        it("lexes char tokens", () => {
+            assertLexesTo(["a%"], [new CharToken("a", Category.Letter)]);
+        });
 
-describe("lexing basic tokens", () => {
-    it("lexes char tokens", () => {
-        assertLexesTo(["a%"], [new Token(Token.CHAR_TOKEN, "a", Category.Letter)]);
+        it("lexes control sequences", () => {
+            assertLexesTo(["\\ab%"], [new ControlSequence("ab")]);
+            assertLexesTo(["\\@%"], [new ControlSequence("@")]);
+        });
+
+        it("lexes multiple tokens", () => {
+            assertLexesTo(["ab%"], [
+                new CharToken("a", Category.Letter),
+                new CharToken("b", Category.Letter),
+            ]);
+        });
+
+        it("ignores ignored tokens", () => {
+            assertLexesTo(["a\u0000b%"], [
+                new CharToken("a", Category.Letter),
+                new CharToken("b", Category.Letter),
+            ]);
+        });
+
+        it("throws on invalid tokens", () => {
+            expect(() => {
+                resetState();
+                setSource(["\u00ff"]);
+                lexToken();
+            }).toThrow("Invalid character found: \u00ff");
+        });
     });
 
-    it("lexes control sequences", () => {
-        assertLexesTo(["\\ab%"], [new Token(Token.CONTROL_SEQUENCE, "ab")]);
-        assertLexesTo(["\\@%"], [new Token(Token.CONTROL_SEQUENCE, "@")]);
+    describe("handling trigraphs", () => {
+        it("correctly lexes trigraphs", () => {
+            assertLexesTo(["^^:%"], [new CharToken("z", Category.Letter)]);
+        });
+
+        it("lexes trigraphs recursively", () => {
+            assertLexesTo(["^^\u001E^:%"], [new CharToken("z", Category.Letter)]);
+        });
+
+        it("lexes hex trigraphs", () => {
+            assertLexesTo(["^^7a%"], [new CharToken("z", Category.Letter)]);
+            assertLexesTo(["^^7g%"], [
+                new CharToken("w", Category.Letter),
+                new CharToken("g", Category.Letter),
+            ]);
+        });
+
+        it("lexes control sequence trigraphs", () => {
+            assertLexesTo(["^^\u001Cab \\a^^:%%"], [
+                new ControlSequence("ab"),
+                new ControlSequence("az"),
+            ]);
+        });
     });
 
-    it("lexes multiple tokens", () => {
-        assertLexesTo(["ab%"], [
-            new Token(Token.CHAR_TOKEN, "a", Category.Letter),
-            new Token(Token.CHAR_TOKEN, "b", Category.Letter),
-        ]);
+    describe("handling space", () => {
+        it("ignores leading spaces", () => {
+            assertLexesTo(["  a%"], [new CharToken("a", Category.Letter)]);
+        });
+
+        it("includes trailing spaces", () => {
+            assertLexesTo(["a "], [
+                new CharToken("a", Category.Letter),
+                new CharToken(" ", Category.Space),
+            ]);
+        });
+
+        it("ignores space after control sequences", () => {
+            assertLexesTo(["\\a \\abc \\  %"], [
+                new ControlSequence("a"),
+                new ControlSequence("abc"),
+                new ControlSequence(" "),
+            ]);
+        });
+
+        it("condenses multiple spaces into one space", () => {
+            assertLexesTo([" a ", " a%"], [
+                new CharToken("a", Category.Letter),
+                new CharToken(" ", Category.Space),
+                new CharToken("a", Category.Letter),
+            ]);
+        });
+
+        it("converts double newlines to pars", () => {
+            assertLexesTo(["a%", "", "a%"], [
+                new CharToken("a", Category.Letter),
+                new ControlSequence("par"),
+                new CharToken("a", Category.Letter),
+            ]);
+        });
     });
 
-    it("ignores ignored tokens", () => {
-        assertLexesTo(["a\u0000b%"], [
-            new Token(Token.CHAR_TOKEN, "a", Category.Letter),
-            new Token(Token.CHAR_TOKEN, "b", Category.Letter),
-        ]);
-    });
-
-    it("throws on invalid tokens", () => {
-        expect(() => {
-            startLexing(["\u00ff"]);
-            lexToken();
-        }).toThrow("Invalid character found: \u00ff");
-    });
-});
-
-describe("handling trigraphs", () => {
-    it("correctly lexes trigraphs", () => {
-        assertLexesTo(["^^:%"], [new Token(Token.CHAR_TOKEN, "z", Category.Letter)]);
-    });
-
-    it("lexes trigraphs recursively", () => {
-        assertLexesTo(["^^\u001E^:%"], [new Token(Token.CHAR_TOKEN, "z", Category.Letter)]);
-    });
-
-    it("lexes hex trigraphs", () => {
-        assertLexesTo(["^^7a%"], [new Token(Token.CHAR_TOKEN, "z", Category.Letter)]);
-        assertLexesTo(["^^7g%"], [
-            new Token(Token.CHAR_TOKEN, "w", Category.Letter),
-            new Token(Token.CHAR_TOKEN, "g", Category.Letter),
-        ]);
-    });
-
-    it("lexes control sequence trigraphs", () => {
-        assertLexesTo(["^^\u001Cab \\a^^:%%"], [
-            new Token(Token.CONTROL_SEQUENCE, "ab"),
-            new Token(Token.CONTROL_SEQUENCE, "az"),
-        ]);
-    });
-});
-
-describe("handling space", () => {
-    it("ignores leading spaces", () => {
-        assertLexesTo(["  a%"], [new Token(Token.CHAR_TOKEN, "a", Category.Letter)]);
-    });
-
-    it("includes trailing spaces", () => {
-        assertLexesTo(["a "], [
-            new Token(Token.CHAR_TOKEN, "a", Category.Letter),
-            new Token(Token.CHAR_TOKEN, " ", Category.Space),
-        ]);
-    });
-
-    it("ignores space after control sequences", () => {
-        assertLexesTo(["\\a \\abc \\  %"], [
-            new Token(Token.CONTROL_SEQUENCE, "a"),
-            new Token(Token.CONTROL_SEQUENCE, "abc"),
-            new Token(Token.CONTROL_SEQUENCE, " "),
-        ]);
-    });
-
-    it("condenses multiple spaces into one space", () => {
-        assertLexesTo([" a ", " a%"], [
-            new Token(Token.CHAR_TOKEN, "a", Category.Letter),
-            new Token(Token.CHAR_TOKEN, " ", Category.Space),
-            new Token(Token.CHAR_TOKEN, "a", Category.Letter),
-        ]);
-    });
-
-    it("converts double newlines to pars", () => {
-        assertLexesTo(["a%", "", "a%"], [
-            new Token(Token.CHAR_TOKEN, "a", Category.Letter),
-            new Token(Token.CONTROL_SEQUENCE, "par"),
-            new Token(Token.CHAR_TOKEN, "a", Category.Letter),
-        ]);
-    });
-});
-
-describe("comments", () => {
-    it("parses comments", () => {
-        assertLexesTo(["a%b"], [new Token(Token.CHAR_TOKEN, "a", Category.Letter)]);
+    describe("comments", () => {
+        it("parses comments", () => {
+            assertLexesTo(["a%b"], [new CharToken("a", Category.Letter)]);
+        });
     });
 });
