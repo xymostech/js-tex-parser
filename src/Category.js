@@ -1,20 +1,20 @@
 // @flow
-export const Escape = Symbol("escape");
-export const BeginGroup = Symbol("begin group");
-export const EndGroup = Symbol("end group");
-export const MathShift = Symbol("math shift");
-export const AlignmentTab = Symbol("alignment tab");
-export const EndOfLine = Symbol("end of line");
-export const Parameter = Symbol("parameter");
-export const Superscript = Symbol("superscript");
-export const Subscript = Symbol("subscript");
-export const Ignored = Symbol("ignored");
-export const Space = Symbol("space");
-export const Letter = Symbol("letter");
-export const Other = Symbol("other");
-export const Active = Symbol("active");
-export const Comment = Symbol("comment");
-export const Invalid = Symbol("invalid");
+export const Escape       = Symbol("escape");        // 0
+export const BeginGroup   = Symbol("begin group");   // 1
+export const EndGroup     = Symbol("end group");     // 2
+export const MathShift    = Symbol("math shift");    // 3
+export const AlignmentTab = Symbol("alignment tab"); // 4
+export const EndOfLine    = Symbol("end of line");   // 5
+export const Parameter    = Symbol("parameter");     // 6
+export const Superscript  = Symbol("superscript");   // 7
+export const Subscript    = Symbol("subscript");     // 8
+export const Ignored      = Symbol("ignored");       // 9
+export const Space        = Symbol("space");         // 10
+export const Letter       = Symbol("letter");        // 11
+export const Other        = Symbol("other");         // 12
+export const Active       = Symbol("active");        // 13
+export const Comment      = Symbol("comment");       // 14
+export const Invalid      = Symbol("invalid");       // 15
 
 export type Category = (
     typeof Escape |

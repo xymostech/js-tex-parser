@@ -26,6 +26,27 @@ export function resetState() {
 
 resetState();
 
-export function getCategory(c: string): Category | void {
-    return categoryMap.get(c);
+export function getCategory(c: string): Category {
+    const category: ?Category = categoryMap.get(c);
+    return category == null ? Other : category;
+}
+
+const countRegisters: Map<number, number> = new Map();
+
+export function setCount(register: number, value: number) {
+    if (register < 0 || register > 255) {
+        throw new Error(`Trying to set invalid count register: ${register}`);
+    }
+    if (!Number.isInteger(value) || value < -2147483647 || value > 2147483647) {
+        throw new Error(`Invalid count register value: ${value}`);
+    }
+    countRegisters.set(register, value);
+}
+
+export function getCount(register: number): number {
+    if (register < 0 || register > 255) {
+        throw new Error(`Trying to get invalid count register: ${register}`);
+    }
+    const value: ?number = countRegisters.get(register);
+    return value == null ? 0 : value;
 }

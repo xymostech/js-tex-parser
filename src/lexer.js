@@ -136,7 +136,13 @@ function isInvalid(c) {
     return getCategory(c) === Invalid;
 }
 
+const unlexedToks: Token[] = [];
+
 export function lexToken(): ?Token {
+    if (unlexedToks.length > 0) {
+        return unlexedToks.pop();
+    }
+
     const start = getChar();
 
     if (start === EOF) {
@@ -190,6 +196,12 @@ export function lexToken(): ?Token {
         return lexToken();
     } else {
         state = MIDDLE_LINE;
-        return new CharToken(start, Letter);
+        return new CharToken(start, getCategory(start));
+    }
+}
+
+export function unLexToken(tok: ?Token) {
+    if (tok) {
+        unlexedToks.push(tok);
     }
 }
