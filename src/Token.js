@@ -23,6 +23,10 @@ export class Token {
     isControlSequence() {
         throw new Error("unimplemented");
     }
+
+    toString(): string {
+        throw new Error("unimplemented");
+    }
 }
 
 export class ControlSequence extends Token {
@@ -38,12 +42,8 @@ export class ControlSequence extends Token {
                 this.value === other.value);
     }
 
-    isCharToken() {
-        return false;
-    }
-
-    isControlSequence() {
-        return true;
+    toString(): string {
+        return `Control sequence \\${this.value}`;
     }
 }
 
@@ -63,11 +63,7 @@ export class CharToken extends Token {
                 this.category === other.category);
     }
 
-    isCharToken() {
-        return true;
-    }
-
-    isControlSequence() {
-        return false;
+    toString(): string {
+        return `Character '${this.ch}' of category ${this.category.toString()}`;
     }
 }

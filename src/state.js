@@ -1,37 +1,22 @@
 // @flow
 import type {Category} from "./Category.js";
-import {Letter, Other, Escape, Ignored, Comment, EndOfLine, Space, Invalid, Superscript} from "./Category.js";
+import {
+    Letter, Other, Escape, Ignored, Comment, EndOfLine, Space, Invalid,
+    Superscript, BeginGroup, EndGroup, Parameter,
+} from "./Category.js";
+import {Macro} from "./Macro.js";
+import {Token} from "./Token.js";
 
-const categoryMap: Map<string, Category> = new Map();
-
-export function resetState() {
-    for (let i = 0; i < 256; i++) {
-        const ch = String.fromCharCode(i);
-        if (("a" <= ch && ch <= "z") || ("A" <= ch && ch <= "Z")) {
-            categoryMap.set(ch, Letter);
-        } else {
-            categoryMap.set(ch, Other);
-        }
-    }
-    categoryMap.set("\\", Escape);
-    categoryMap.set("\u0000", Ignored);
-    categoryMap.set("%", Comment);
-    categoryMap.set("\n", EndOfLine);
-    categoryMap.set(" ", Space);
-    categoryMap.set("\u00ff", Invalid);
-
-    // TODO(emily): Remove me, these aren't set by default!
-    categoryMap.set("^", Superscript);
-}
-
-resetState();
+// Categories
+let categoryMap: Map<string, Category> = new Map();
 
 export function getCategory(c: string): Category {
     const category: ?Category = categoryMap.get(c);
     return category == null ? Other : category;
 }
 
-const countRegisters: Map<number, number> = new Map();
+// Registers
+let countRegisters: Map<number, number> = new Map();
 
 export function setCount(register: number, value: number) {
     if (register < 0 || register > 255) {
@@ -50,3 +35,50 @@ export function getCount(register: number): number {
     const value: ?number = countRegisters.get(register);
     return value == null ? 0 : value;
 }
+
+// Macros
+let macros: Map<Token, Macro> = new Map();
+
+export function getMacro(token: Token): ?Macro {
+    // NOTE(xymostech): we can't just call `macros.get(token)` because we need
+    // to manually check equality of the tokens.
+    for (const [tok, macro] of macros) {
+        if (tok.equals(token)) {
+            return macro;
+        }
+    }
+    return null;
+}
+
+export function setMacro(token: Token, macro: Macro) {
+    macros.set(token, macro);
+}
+
+// State reset
+export function resetState() {
+    categoryMap = new Map();
+    for (let i = 0; i < 256; i++) {
+        const ch = String.fromCharCode(i);
+        if (("a" <= ch && ch <= "z") || ("A" <= ch && ch <= "Z")) {
+            categoryMap.set(ch, Letter);
+        } else {
+            categoryMap.set(ch, Other);
+        }
+    }
+    categoryMap.set("\\", Escape);
+    categoryMap.set("\u0000", Ignored);
+    categoryMap.set("%", Comment);
+    categoryMap.set("\n", EndOfLine);
+    categoryMap.set(" ", Space);
+    categoryMap.set("\u00ff", Invalid);
+
+    // TODO(emily): Remove me, these aren't set by default!
+    categoryMap.set("^", Superscript);
+    categoryMap.set("{", BeginGroup);
+    categoryMap.set("}", EndGroup);
+    categoryMap.set("#", Parameter);
+
+    countRegisters = new Map();
+    macros = new Map();
+}
+resetState();

@@ -73,6 +73,8 @@ function parseIntegerConstant(): number {
         tok = lexToken();
     }
 
+    parseOptionalSpace();
+
     return value;
 }
 
