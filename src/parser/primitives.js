@@ -12,7 +12,6 @@ function parseOptionalSpaces() {
 
 const EQUALS = new CharToken("=", Other);
 
-
 export function parseEquals() {
     parseOptionalSpaces();
     const tok = lexToken();
@@ -21,7 +20,7 @@ export function parseEquals() {
     }
 }
 
-function parseOptionalSpace() {
+export function parseOptionalSpace() {
     const tok = lexToken();
     if (!(tok && tok instanceof CharToken && tok.category === Space)) {
         unLexToken(tok);
@@ -111,4 +110,53 @@ export function parse8BitNumber(): number {
         throw new Error(`Invalid 8-bit number: ${number}`);
     }
     return number;
+}
+
+export function parseExplicitChars(chars: string) {
+    parseOptionalSpaces();
+
+    for (let i = 0; i < chars.length; i++) {
+        const char = chars[i];
+        const tok = lexToken();
+
+        if (!tok) {
+            throw new Error("EOF encountered while parsing explicit chars");
+        } else if (
+            tok instanceof CharToken &&
+            (tok.ch === char.toLowerCase() ||
+             tok.ch === char.toUpperCase())
+        ) {
+            continue;
+        } else {
+            throw new Error(
+                `Invalid token ${tok.toString()} found while looking for ` +
+                `explicit ${char}`);
+        }
+    }
+}
+
+export function parseOptionalExplicitChars(chars: string) {
+    parseOptionalSpaces();
+
+    for (let i = 0; i < chars.length; i++) {
+        const char = chars[i];
+        const tok = lexToken();
+
+        if (
+            tok instanceof CharToken &&
+            (tok.ch === char.toLowerCase() ||
+             tok.ch === char.toUpperCase())
+        ) {
+            continue;
+        } else if (i === 0) {
+            unLexToken(tok);
+            return;
+        } else if (!tok) {
+            throw new Error("EOF encountered while parsing explicit chars");
+        } else {
+            throw new Error(
+                `Invalid token ${tok.toString()} found while looking for ` +
+                `explicit ${char}`);
+        }
+    }
 }

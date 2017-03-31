@@ -54,6 +54,32 @@ export function setMacro(token: Token, macro: Macro) {
     macros.set(token, macro);
 }
 
+// Let values
+let lets: Map<Token, Token> = new Map();
+
+export function getLet(token: Token): ?Token {
+    // NOTE(xymostech): we can't just call `lets.get(token)` because we need
+    // to manually check equality of the tokens.
+    for (const [tok, replace] of lets) {
+        if (tok.equals(token)) {
+            return replace;
+        }
+    }
+    return null;
+}
+
+export function setLet(token: Token, replace: Token) {
+    const macro = getMacro(replace);
+    if (macro) {
+        // If `replace` referred to a macro, set `token` to refer to that macro
+        // as well.
+        setMacro(token, macro);
+    } else {
+        // Otherwise, store the plain token -> token mapping.
+        lets.set(token, replace);
+    }
+}
+
 // State reset
 export function resetState() {
     categoryMap = new Map();
@@ -80,5 +106,6 @@ export function resetState() {
 
     countRegisters = new Map();
     macros = new Map();
+    lets = new Map();
 }
 resetState();

@@ -1,10 +1,14 @@
 // @flow
 import {Token, ControlSequence, CharToken} from "../Token.js";
 import {lexToken, unLexToken} from "../lexer.js";
-import {parse8BitNumber, parseNumber, parseEquals} from "./primitives.js";
-import {setCount, setMacro} from "../state.js";
+import {
+    parseNumber, parseEquals, parseOptionalSpace,
+    parseOptionalExplicitChars,
+} from "./primitives.js";
+import {setMacro, setLet} from "../state.js";
 import {Active} from "../Category.js";
 import {parseDefinitionText} from "./macros.js";
+import {isVariableHead, parseVariable} from "./variables.js";
 
 /*
  * Assignments are:
@@ -72,29 +76,17 @@ import {parseDefinitionText} from "./macros.js";
  *    - <prefix> = \global, \long, \outer
  */
 
-const COUNT = new ControlSequence("count");
-const DIMEN = new ControlSequence("dimen");
-const SKIP = new ControlSequence("skip");
-const MUSKIP = new ControlSequence("muskip");
-const TOKS = new ControlSequence("toks");
-
-function isSimpleAssignmentHead(tok) {
-    const isParamAssignment = false;
-    const isDefTokenAssignment = false;
-    const isExplicitTokenAssignment =
-          tok.equals(COUNT) || tok.equals(DIMEN) || tok.equals(SKIP) ||
-          tok.equals(MUSKIP) || tok.equals(TOKS);
-
-    return isParamAssignment || isDefTokenAssignment ||
-        isExplicitTokenAssignment;
+function isVariableAssignmentHead(tok) {
+    return isVariableHead(tok);
 }
 
-function parseSimpleAssignment(tok) {
-    if (tok.equals(COUNT)) {
-        const countRegister = parse8BitNumber();
+function parseVariableAssignment(tok) {
+    unLexToken(tok);
+    const variable = parseVariable();
+    if (variable.getValueType() === "integer") {
         parseEquals();
         const value = parseNumber();
-        setCount(countRegister, value);
+        variable.setValue(value);
     } else {
         throw new Error("unimplemented");
     }
@@ -108,11 +100,61 @@ function isArithmeticHead(tok) {
     return tok.equals(ADVANCE) || tok.equals(MULTIPLY) || tok.equals(DIVIDE);
 }
 
+function parseArithmetic(tok) {
+    const variable = parseVariable();
+
+    if (tok.equals(ADVANCE)) {
+        if (variable.getValueType() === "integer") {
+            parseOptionalExplicitChars("by");
+            const value = parseNumber();
+            variable.setValue(variable.getValue() + value);
+        } else {
+            throw new Error("unimplemented");
+        }
+    } else if (tok.equals(MULTIPLY)) {
+        if (variable.getValueType() === "integer") {
+            parseOptionalExplicitChars("by");
+            const value = parseNumber();
+            variable.setValue(variable.getValue() * value);
+        } else {
+            throw new Error("unimplemented");
+        }
+    } else if (tok.equals(DIVIDE)) {
+        if (variable.getValueType() === "integer") {
+            parseOptionalExplicitChars("by");
+            const value = parseNumber();
+            variable.setValue(
+                Math.trunc(variable.getValue() / value));
+        } else {
+            throw new Error("unimplemented");
+        }
+    } else {
+        throw new Error("unimplemented");
+    }
+}
+
 const LET = new ControlSequence("let");
 const FUTURELET = new ControlSequence("futurelet");
 
 function isLetAssignmentHead(tok) {
     return tok.equals(LET) || tok.equals(FUTURELET);
+}
+
+function parseLetAssignment(tok) {
+    if (tok.equals(LET)) {
+        const set = parseControlSequence();
+        parseEquals();
+        parseOptionalSpace();
+        const to = lexToken();
+
+        if (to) {
+            setLet(set, to);
+        } else {
+            throw new Error(`EOF found while parsing \\let`);
+        }
+    } else {
+        throw new Error("unimplemented");
+    }
 }
 
 const DEF = new ControlSequence("def");
@@ -124,12 +166,18 @@ function isNonMacroAssignmentHead(tok) {
     return (
         isLetAssignmentHead(tok) ||
         isArithmeticHead(tok) ||
-        isSimpleAssignmentHead(tok));
+        isVariableAssignmentHead(tok));
 }
 
 function parseNonMacroAssignment(tok) {
-    if (isSimpleAssignmentHead(tok)) {
-        parseSimpleAssignment(tok);
+    if (isVariableAssignmentHead(tok)) {
+        parseVariableAssignment(tok);
+    } else if (isLetAssignmentHead(tok)) {
+        parseLetAssignment(tok);
+    } else if (isArithmeticHead(tok)) {
+        parseArithmetic(tok);
+    } else {
+        throw new Error("unimplemented");
     }
 }
 
@@ -141,21 +189,27 @@ function isMacroAssignmentHead(tok) {
         tok.equals(XDEF));
 }
 
+function parseControlSequence() {
+    const tok = lexToken();
+    if (!tok) {
+        throw new Error(`EOF found parsing control sequence`);
+    } else if (tok instanceof ControlSequence) {
+        return tok;
+    } else if (tok instanceof CharToken && tok.category === Active) {
+        return tok;
+    } else {
+        throw new Error(
+            `Invalid token parsing control sequence: ` +
+            `${tok.toString()}`);
+    }
+}
+
 function parseMacroAssignment(tok) {
     if (tok.equals(DEF)) {
-        const tok = lexToken();
-        if (!tok) {
-            throw new Error(`EOF found after \def`);
-        } else if (
-            !(tok instanceof ControlSequence) &&
-            !(tok instanceof CharToken && tok.category === Active)
-        ) {
-            throw new Error(`Invalid token after \def: ${tok.toString()}`);
-        }
-
+        const set = parseControlSequence();
         const macro = parseDefinitionText();
 
-        setMacro(tok, macro);
+        setMacro(set, macro);
     } else {
         throw new Error("unimplemented");
     }
