@@ -1,8 +1,10 @@
 // @flow
-import {Token, ControlSequence} from "../Token.js";
+import {Token, ControlSequence, CharToken} from "../Token.js";
 import {lexToken, unLexToken} from "../lexer.js";
 import {parse8BitNumber, parseNumber, parseEquals} from "./primitives.js";
-import {setCount} from "../state.js";
+import {setCount, setMacro} from "../state.js";
+import {Active} from "../Category.js";
+import {parseDefinitionText} from "./macros.js";
 
 /*
  * Assignments are:
@@ -139,6 +141,26 @@ function isMacroAssignmentHead(tok) {
         tok.equals(XDEF));
 }
 
+function parseMacroAssignment(tok) {
+    if (tok.equals(DEF)) {
+        const tok = lexToken();
+        if (!tok) {
+            throw new Error(`EOF found after \def`);
+        } else if (
+            !(tok instanceof ControlSequence) &&
+            !(tok instanceof CharToken && tok.category === Active)
+        ) {
+            throw new Error(`Invalid token after \def: ${tok.toString()}`);
+        }
+
+        const macro = parseDefinitionText();
+
+        setMacro(tok, macro);
+    } else {
+        throw new Error("unimplemented");
+    }
+}
+
 function isAssignmentHead(tok: Token) {
     return (
         isNonMacroAssignmentHead(tok) ||
@@ -159,6 +181,8 @@ export function parseAssignment(): boolean {
 
     if (isNonMacroAssignmentHead(tok)) {
         parseNonMacroAssignment(tok);
+    } else if (isMacroAssignmentHead(tok)) {
+        parseMacroAssignment(tok);
     }
 
     return true;
