@@ -1,8 +1,8 @@
-import {CharToken} from "../Token.js";
+import {Token, CharToken} from "../Token.js";
 import {lexToken, unLexToken} from "../lexer.js";
-import {Space, Other} from "../Category.js";
+import {Space, Other, BeginGroup, EndGroup} from "../Category.js";
 
-function parseOptionalSpaces() {
+export function parseOptionalSpaces() {
     let tok = lexToken();
     while (tok && tok instanceof CharToken && tok.category === Space) {
         tok = lexToken();
@@ -159,4 +159,30 @@ export function parseOptionalExplicitChars(chars: string) {
                 `explicit ${char}`);
         }
     }
+}
+
+export function parseBalancedText(): Token[] {
+    const result: Token[] = [];
+    let braceLevel = 0;
+
+    let tok = lexToken();
+    while (
+        tok &&
+        (braceLevel > 0 ||
+         !(tok instanceof CharToken && tok.category === EndGroup))
+    ) {
+        if (tok instanceof CharToken && tok.category === BeginGroup) {
+            result.push(tok);
+            braceLevel++;
+        } else if (tok instanceof CharToken && tok.category === EndGroup) {
+            result.push(tok);
+            braceLevel--;
+        } else {
+            result.push(tok);
+        }
+        tok = lexToken();
+    }
+
+    unLexToken(tok);
+    return result;
 }

@@ -2,7 +2,7 @@
 import type {Category} from "./Category.js";
 import {
     Letter, Other, Escape, Ignored, Comment, EndOfLine, Space, Invalid,
-    Superscript, BeginGroup, EndGroup, Parameter,
+    Superscript, BeginGroup, EndGroup, Parameter, MathShift,
 } from "./Category.js";
 import {Macro} from "./Macro.js";
 import {Token} from "./Token.js";
@@ -103,6 +103,7 @@ export function resetState() {
     categoryMap.set("{", BeginGroup);
     categoryMap.set("}", EndGroup);
     categoryMap.set("#", Parameter);
+    categoryMap.set("$", MathShift);
 
     countRegisters = new Map();
     macros = new Map();
