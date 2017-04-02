@@ -28,7 +28,8 @@ export function lexExpandedToken(): ?Token {
         unLexToken(letReplace);
         return lexExpandedToken();
     } else if (isConditionalHead(tok)) {
-        return unLexMany(expandConditional(tok));
+        unLexMany(expandConditional(tok));
+        return lexExpandedToken();
     } else {
         return tok;
     }

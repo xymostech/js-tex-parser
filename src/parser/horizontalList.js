@@ -1,4 +1,5 @@
 // @flow
+import {unLexToken} from "../lexer.js";
 import {lexExpandedToken} from "../expand.js";
 import {Letter, Other, Space} from "../Category.js";
 import {CharToken} from "../Token.js";
@@ -50,10 +51,13 @@ export default function parseHorizontalList() {
             } else {
                 throw new Error("unimplemented");
             }
-        } else if (parseAssignment()) {
-            continue;
         } else {
-            throw new Error("unimplemented");
+            unLexToken(tok);
+            if (parseAssignment()) {
+                // do nothing, we did the assignment!
+            } else {
+                throw new Error("unimplemented");
+            }
         }
         tok = lexExpandedToken();
     }
