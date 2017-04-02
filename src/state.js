@@ -29,6 +29,19 @@ export function setCount(register: number, value: number) {
     countRegisters.set(register, value);
 }
 
+export function globalSetCount(register: number, value: number) {
+    if (register < 0 || register > 255) {
+        throw new Error(`Trying to set invalid count register: ${register}`);
+    }
+    if (!Number.isInteger(value) || value < -2147483647 || value > 2147483647) {
+        throw new Error(`Invalid count register value: ${value}`);
+    }
+    countRegisters.set(register, value);
+    groupLevels.forEach(level => {
+        level.countRegisters.set(register, value);
+    });
+}
+
 export function getCount(register: number): number {
     if (register < 0 || register > 255) {
         throw new Error(`Trying to get invalid count register: ${register}`);
@@ -48,6 +61,13 @@ export function setMacro(token: Token, macro: Macro) {
     macros.set(token, macro);
 }
 
+export function globalSetMacro(token: Token, macro: Macro) {
+    macros.set(token, macro);
+    groupLevels.forEach(level => {
+        level.macros.set(token, macro);
+    });
+}
+
 // Let values
 let lets: TokenMap<Token> = new TokenMap();
 
@@ -65,6 +85,18 @@ export function setLet(token: Token, replace: Token) {
         // Otherwise, store the plain token -> token mapping.
         lets.set(token, replace);
     }
+}
+
+export function globalSetLet(token: Token, replace: Token) {
+    setLet(token, replace);
+    groupLevels.forEach(level => {
+        const macro = level.macros.get(replace);
+        if (macro) {
+            level.macros.set(token, macro);
+        } else {
+            level.lets.set(token, replace);
+        }
+    });
 }
 
 type AllState = {

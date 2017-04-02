@@ -1,7 +1,9 @@
 // @flow
 /* global expect */
 import {setSource} from "../../lexer.js";
-import {resetState, getCount, getMacro, getLet} from "../../state.js";
+import {
+    resetState, getCount, getMacro, getLet, pushGroup, popGroup,
+} from "../../state.js";
 import {CharToken, ControlSequence} from "../../Token.js";
 import {Macro, Parameter} from "../../Macro.js";
 import {Letter, Space} from "../../Category.js";
@@ -128,6 +130,82 @@ describe("assignments", () => {
 
                 expect(getMacro(new ControlSequence("x"))).toEqual(macro);
                 expect(getMacro(new ControlSequence("y"))).toEqual(macro);
+            });
+        });
+    });
+
+    describe("global assignment", () => {
+        function handleGroup() {
+            const tok = lexExpandedToken();
+            if (tok instanceof CharToken && tok.ch === "{") {
+                pushGroup();
+            } else if (tok instanceof CharToken && tok.ch === "}") {
+                popGroup();
+            }
+        }
+
+        it("globally sets counts", () => {
+            expectParse([
+                "\\count0=1{%",
+                "\\count0=2{%",
+                "\\global\\count0=3%",
+                "}}%",
+            ], () => {
+                doAssignment();
+                handleGroup();
+                doAssignment();
+                handleGroup();
+                doAssignment();
+                expect(getCount(0)).toEqual(3);
+                handleGroup();
+                expect(getCount(0)).toEqual(3);
+                handleGroup();
+                expect(getCount(0)).toEqual(3);
+            });
+        });
+
+        it("globally sets macros", () => {
+            expectParse([
+                "\\def\\a{x}{%",
+                "\\def\\a{y}{%",
+                "\\global\\def\\a{z}%",
+                "}}%",
+            ], () => {
+                const macro = new Macro([], [new CharToken("z", Letter)]);
+
+                doAssignment();
+                handleGroup();
+                doAssignment();
+                handleGroup();
+                doAssignment();
+                expect(getMacro(new ControlSequence("a"))).toEqual(macro);
+                handleGroup();
+                expect(getMacro(new ControlSequence("a"))).toEqual(macro);
+                handleGroup();
+                expect(getMacro(new ControlSequence("a"))).toEqual(macro);
+            });
+        });
+
+        it("lets macros to their local value in a group", () => {
+            expectParse([
+                "\\def\\a{x}{%",
+                "\\def\\a{y}{%",
+                "\\global\\let\\b\\a%",
+                "}}%",
+            ], () => {
+                const xMacro = new Macro([], [new CharToken("x", Letter)]);
+                const yMacro = new Macro([], [new CharToken("y", Letter)]);
+
+                doAssignment();
+                handleGroup();
+                doAssignment();
+                handleGroup();
+                doAssignment();
+                expect(getMacro(new ControlSequence("a"))).toEqual(yMacro);
+                handleGroup();
+                expect(getMacro(new ControlSequence("a"))).toEqual(yMacro);
+                handleGroup();
+                expect(getMacro(new ControlSequence("a"))).toEqual(xMacro);
             });
         });
     });

@@ -5,11 +5,12 @@ import {
     parseNumberValue, parseEquals,
     parseOptionalExplicitChars, parseOptionalSpaces,
 } from "./primitives.js";
-import {setMacro, setLet} from "../state.js";
+import {setMacro, globalSetMacro, setLet, globalSetLet} from "../state.js";
 import {Active, Space, Other} from "../Category.js";
 import {parseDefinitionText} from "./macros.js";
 import {isVariableHead, parseVariable} from "./variables.js";
 import {IntegerVariable} from "../Variable.js";
+import {lexExpandedToken} from "../expand.js";
 
 /*
  * Assignments are:
@@ -81,13 +82,13 @@ function isVariableAssignmentHead(tok) {
     return isVariableHead(tok);
 }
 
-function parseVariableAssignment(tok) {
+function parseVariableAssignment(tok, global) {
     unLexToken(tok);
     const variable = parseVariable();
     if (variable instanceof IntegerVariable) {
         parseEquals();
         const value = parseNumberValue();
-        variable.setValue(value);
+        variable.setValue(value, global);
     } else {
         throw new Error("unimplemented");
     }
@@ -101,7 +102,7 @@ function isArithmeticHead(tok) {
     return tok.equals(ADVANCE) || tok.equals(MULTIPLY) || tok.equals(DIVIDE);
 }
 
-function parseArithmetic(tok) {
+function parseArithmetic(tok, global) {
     const variable = parseVariable();
 
     if (tok.equals(ADVANCE)) {
@@ -109,7 +110,7 @@ function parseArithmetic(tok) {
             parseOptionalExplicitChars("by");
             parseOptionalSpaces();
             const value = parseNumberValue();
-            variable.setValue(variable.getValue() + value);
+            variable.setValue(variable.getValue() + value, global);
         } else {
             throw new Error("unimplemented");
         }
@@ -118,7 +119,7 @@ function parseArithmetic(tok) {
             parseOptionalExplicitChars("by");
             parseOptionalSpaces();
             const value = parseNumberValue();
-            variable.setValue(variable.getValue() * value);
+            variable.setValue(variable.getValue() * value, global);
         } else {
             throw new Error("unimplemented");
         }
@@ -128,7 +129,7 @@ function parseArithmetic(tok) {
             parseOptionalSpaces();
             const value = parseNumberValue();
             variable.setValue(
-                Math.trunc(variable.getValue() / value));
+                Math.trunc(variable.getValue() / value), global);
         } else {
             throw new Error("unimplemented");
         }
@@ -144,7 +145,7 @@ function isLetAssignmentHead(tok) {
     return tok.equals(LET) || tok.equals(FUTURELET);
 }
 
-function parseLetAssignment(tok) {
+function parseLetAssignment(tok, global) {
     if (tok.equals(LET)) {
         const set = parseControlSequenceUnexpanded();
         // Because we don't want to expand macros here, instead of using
@@ -171,7 +172,11 @@ function parseLetAssignment(tok) {
         const to = tok;
 
         if (to) {
-            setLet(set, to);
+            if (global) {
+                globalSetLet(set, to);
+            } else {
+                setLet(set, to);
+            }
         } else {
             throw new Error(`EOF found while parsing \\let`);
         }
@@ -192,13 +197,13 @@ function isNonMacroAssignmentHead(tok) {
         isVariableAssignmentHead(tok));
 }
 
-function parseNonMacroAssignment(tok) {
+function parseNonMacroAssignment(tok, global) {
     if (isVariableAssignmentHead(tok)) {
-        parseVariableAssignment(tok);
+        parseVariableAssignment(tok, global);
     } else if (isLetAssignmentHead(tok)) {
-        parseLetAssignment(tok);
+        parseLetAssignment(tok, global);
     } else if (isArithmeticHead(tok)) {
-        parseArithmetic(tok);
+        parseArithmetic(tok, global);
     } else {
         throw new Error("unimplemented");
     }
@@ -227,28 +232,63 @@ function parseControlSequenceUnexpanded() {
     }
 }
 
-function parseMacroAssignment(tok) {
-    if (tok.equals(DEF)) {
+function parseMacroAssignment(tok, global) {
+    if (tok.equals(DEF) || tok.equals(GDEF)) {
         const set = parseControlSequenceUnexpanded();
         const macro = parseDefinitionText();
 
-        setMacro(set, macro);
+        if (global || tok.equals(GDEF)) {
+            globalSetMacro(set, macro);
+        } else {
+            setMacro(set, macro);
+        }
     } else {
         throw new Error("unimplemented");
     }
 }
 
+const GLOBAL = new ControlSequence("global");
+
 export function isAssignmentHead(tok: Token) {
     return (
+        tok.equals(GLOBAL) ||
         isNonMacroAssignmentHead(tok) ||
         isMacroAssignmentHead(tok));
 }
 
-export function parseAssignment(tok: Token) {
-    if (isNonMacroAssignmentHead(tok)) {
-        parseNonMacroAssignment(tok);
+function parseAssignmentGlobal(tok: Token) {
+    if (tok.equals(GLOBAL)) {
+        const start = lexExpandedToken();
+        if (!start) {
+            throw new Error("EOF");
+        } else if (!isAssignmentHead(start)) {
+            throw new Error("non-macro-head found after \\global");
+        } else {
+            parseAssignmentGlobal(start);
+        }
+    } else if (isNonMacroAssignmentHead(tok)) {
+        parseNonMacroAssignment(tok, true);
     } else if (isMacroAssignmentHead(tok)) {
-        parseMacroAssignment(tok);
+        parseMacroAssignment(tok, true);
+    } else {
+        throw new Error("non-macro head found in global assignment");
+    }
+}
+
+export function parseAssignment(tok: Token) {
+    if (tok.equals(GLOBAL)) {
+        const start = lexExpandedToken();
+        if (!start) {
+            throw new Error("EOF");
+        } else if (!isAssignmentHead(start)) {
+            throw new Error("non-macro-head found after \\global");
+        } else {
+            parseAssignmentGlobal(start);
+        }
+    } else if (isNonMacroAssignmentHead(tok)) {
+        parseNonMacroAssignment(tok, false);
+    } else if (isMacroAssignmentHead(tok)) {
+        parseMacroAssignment(tok, false);
     } else {
         throw new Error("non-macro-head tok passed to parseAssignment");
     }
