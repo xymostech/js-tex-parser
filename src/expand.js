@@ -3,6 +3,7 @@ import {lexToken, unLexToken} from "./lexer.js";
 import {Token} from "./Token.js";
 import {parseReplacementText} from "./parser/macros.js";
 import {isConditionalHead, expandConditional} from "./parser/conditionals.js";
+import {isPrintHead, expandPrint} from "./parser/printing.js";
 
 function unLexMany(toks: Token[]) {
     toks.reverse();
@@ -29,6 +30,9 @@ export function lexExpandedToken(): ?Token {
         return lexExpandedToken();
     } else if (isConditionalHead(tok)) {
         unLexMany(expandConditional(tok));
+        return lexExpandedToken();
+    } else if (isPrintHead(tok)) {
+        unLexMany(expandPrint(tok));
         return lexExpandedToken();
     } else {
         return tok;

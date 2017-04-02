@@ -5,7 +5,7 @@ import {resetState} from "../state.js";
 import {parseAssignment} from "../parser/assignment.js";
 import {lexExpandedToken} from "../expand.js";
 import {CharToken} from "../Token.js";
-import {Letter} from "../Category.js";
+import {Letter, Other} from "../Category.js";
 
 function startParsing(lines: string[]) {
     resetState();
@@ -43,6 +43,20 @@ describe("lexExpandedToken", () => {
             expect(lexExpandedToken()).toEqual(new CharToken("a", Letter));
             expect(lexExpandedToken()).toEqual(new CharToken("x", Letter));
             expect(lexExpandedToken()).toEqual(new CharToken("b", Letter));
+        });
+    });
+
+    it("lexes \\number expansions", () => {
+        expectParse(["\\number-10%"], () => {
+            expect(lexExpandedToken()).toEqual(new CharToken("-", Other));
+            expect(lexExpandedToken()).toEqual(new CharToken("1", Other));
+            expect(lexExpandedToken()).toEqual(new CharToken("0", Other));
+        });
+
+        expectParse(["\\count0=34 \\number\\count0%"], () => {
+            parseAssignment(lexExpandedToken());
+            expect(lexExpandedToken()).toEqual(new CharToken("3", Other));
+            expect(lexExpandedToken()).toEqual(new CharToken("4", Other));
         });
     });
 });
