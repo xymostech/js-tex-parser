@@ -1,7 +1,8 @@
 // @flow
-import {lexToken, unLexToken} from "../lexer.js";
+import {lexExpandedToken} from "../expand.js";
 import {Letter, Other, Space} from "../Category.js";
 import {CharToken} from "../Token.js";
+import {parseAssignment} from "./assignment.js";
 
 class HorizontalListElem {
     static HBOX_CHAR = Symbol("horizontal box character");
@@ -37,7 +38,7 @@ export default function parseHorizontalList() {
     const result = [];
 
     while (true) { // eslint-disable-line no-constant-condition
-        const tok = lexToken();
+        const tok = lexExpandedToken();
 
         if (!tok) {
             break;
@@ -52,10 +53,10 @@ export default function parseHorizontalList() {
             } else {
                 throw new Error("unimplemented");
             }
+        } else if (parseAssignment()) {
+            continue;
         } else {
-            unLexToken(tok);
-
-            
+            throw new Error("unimplemented");
         }
     }
 

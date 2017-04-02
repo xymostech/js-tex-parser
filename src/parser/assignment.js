@@ -1,14 +1,16 @@
 // @flow
 import {Token, ControlSequence, CharToken} from "../Token.js";
 import {lexToken, unLexToken} from "../lexer.js";
+import {lexExpandedToken} from "../expand.js";
 import {
     parseNumber, parseEquals, parseOptionalSpace,
     parseOptionalExplicitChars,
 } from "./primitives.js";
 import {setMacro, setLet} from "../state.js";
-import {Active} from "../Category.js";
+import {Active, Space, Other} from "../Category.js";
 import {parseDefinitionText} from "./macros.js";
 import {isVariableHead, parseVariable} from "./variables.js";
+import {IntegerVariable} from "../Variable.js";
 
 /*
  * Assignments are:
@@ -83,7 +85,7 @@ function isVariableAssignmentHead(tok) {
 function parseVariableAssignment(tok) {
     unLexToken(tok);
     const variable = parseVariable();
-    if (variable.getValueType() === "integer") {
+    if (variable instanceof IntegerVariable) {
         parseEquals();
         const value = parseNumber();
         variable.setValue(value);
@@ -104,7 +106,7 @@ function parseArithmetic(tok) {
     const variable = parseVariable();
 
     if (tok.equals(ADVANCE)) {
-        if (variable.getValueType() === "integer") {
+        if (variable instanceof IntegerVariable) {
             parseOptionalExplicitChars("by");
             const value = parseNumber();
             variable.setValue(variable.getValue() + value);
@@ -112,7 +114,7 @@ function parseArithmetic(tok) {
             throw new Error("unimplemented");
         }
     } else if (tok.equals(MULTIPLY)) {
-        if (variable.getValueType() === "integer") {
+        if (variable instanceof IntegerVariable) {
             parseOptionalExplicitChars("by");
             const value = parseNumber();
             variable.setValue(variable.getValue() * value);
@@ -120,7 +122,7 @@ function parseArithmetic(tok) {
             throw new Error("unimplemented");
         }
     } else if (tok.equals(DIVIDE)) {
-        if (variable.getValueType() === "integer") {
+        if (variable instanceof IntegerVariable) {
             parseOptionalExplicitChars("by");
             const value = parseNumber();
             variable.setValue(
@@ -142,10 +144,29 @@ function isLetAssignmentHead(tok) {
 
 function parseLetAssignment(tok) {
     if (tok.equals(LET)) {
-        const set = parseControlSequence();
-        parseEquals();
-        parseOptionalSpace();
-        const to = lexToken();
+        const set = parseControlSequenceUnexpanded();
+        // Because we don't want to expand macros here, instead of using
+        // `parseEquals()` and `parseOptionalSpace()` we parse ourselves.
+        let tok = lexToken();
+        while (tok && tok instanceof CharToken && tok.category === Space) {
+            tok = lexToken();
+        }
+        if (!tok) {
+            throw new Error(`EOF found while parsing \\let`);
+        }
+        if (tok.equals(new CharToken("=", Other))) {
+            tok = lexToken();
+            if (!tok) {
+                throw new Error(`EOF found while parsing \\let`);
+            }
+        }
+        if (tok && tok instanceof CharToken && tok.category === Space) {
+            tok = lexToken();
+            if (!tok) {
+                throw new Error(`EOF found while parsing \\let`);
+            }
+        }
+        const to = tok;
 
         if (to) {
             setLet(set, to);
@@ -189,7 +210,7 @@ function isMacroAssignmentHead(tok) {
         tok.equals(XDEF));
 }
 
-function parseControlSequence() {
+function parseControlSequenceUnexpanded() {
     const tok = lexToken();
     if (!tok) {
         throw new Error(`EOF found parsing control sequence`);
@@ -206,7 +227,7 @@ function parseControlSequence() {
 
 function parseMacroAssignment(tok) {
     if (tok.equals(DEF)) {
-        const set = parseControlSequence();
+        const set = parseControlSequenceUnexpanded();
         const macro = parseDefinitionText();
 
         setMacro(set, macro);
@@ -222,7 +243,7 @@ function isAssignmentHead(tok: Token) {
 }
 
 export function parseAssignment(): boolean {
-    const tok = lexToken();
+    const tok = lexExpandedToken();
 
     if (!tok) {
         return false;

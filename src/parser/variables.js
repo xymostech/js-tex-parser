@@ -1,3 +1,4 @@
+// @flow
 import {lexToken} from "../lexer.js";
 import {Variable, CountVariable} from "../Variable.js";
 import {Token, ControlSequence} from "../Token.js";

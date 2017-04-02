@@ -1,3 +1,4 @@
+// @flow
 import {setCount, getCount} from "./state.js";
 
 const INTEGER_VARIABLE = Symbol("integer variable");
@@ -10,19 +11,19 @@ export class Variable {
     constructor(type: VariableType) {
         this._type = type;
     }
-
-    getValueType(): "integer" | "dimen" | "glue" | "muglue" | "token" {
-        if (this._type === INTEGER_VARIABLE) {
-            return "integer";
-        } else {
-            throw new Error("unimplemented");
-        }
-    }
 }
 
-class IntegerVariable extends Variable {
+export class IntegerVariable extends Variable {
     constructor() {
         super(INTEGER_VARIABLE);
+    }
+
+    setValue(value: number) {
+        throw new Error("unimplemented");
+    }
+
+    getValue(): number {
+        throw new Error("unimplemented");
     }
 }
 

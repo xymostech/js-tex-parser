@@ -1,5 +1,7 @@
+// @flow
 import {CharToken} from "../Token.js";
-import {unLexToken, lexToken} from "../lexer.js";
+import {lexToken, unLexToken} from "../lexer.js";
+import {lexExpandedToken} from "../expand.js";
 import {Macro, Parameter} from "../Macro.js";
 import {Token} from "../Token.js";
 import {BeginGroup, EndGroup, Parameter as ParameterCat, Other} from "../Category.js";
@@ -117,14 +119,14 @@ export function parseReplacementText(
 
                 const nextParameter = macro.parameterText.findIndex(
                     (v, ii) => ii > i && v instanceof Parameter);
-                const delimiterToks: Token[] = (
+                const delimiterToks: (Token | Parameter)[] = (
                     nextParameter === -1
                         ? macro.parameterText.slice(i + 1)
                         : macro.parameterText.slice(i + 1, nextParameter));
 
                 let foundDelimiter = false;
                 while (!foundDelimiter) {
-                    const tok = lexToken();
+                    const tok = lexExpandedToken();
 
                     if (!tok) {
                         throw new Error(
@@ -134,7 +136,7 @@ export function parseReplacementText(
 
                         foundDelimiter = delimiterToks.slice(1).every(
                             delimiter => {
-                                const tok = lexToken();
+                                const tok = lexExpandedToken();
                                 if (!tok) {
                                     throw new Error(
                                         "EOF found looking for macro " +
@@ -148,7 +150,8 @@ export function parseReplacementText(
                                 }
                             });
 
-                        delimiterParsed.reverse().forEach(tok => {
+                        delimiterParsed.reverse();
+                        delimiterParsed.forEach(tok => {
                             unLexToken(tok);
                         });
                         if (foundDelimiter) {
@@ -163,7 +166,7 @@ export function parseReplacementText(
                         result.push(tok);
                         result.push(...parseBalancedText());
 
-                        const endBrace = lexToken();
+                        const endBrace = lexExpandedToken();
                         if (!endBrace) {
                             throw new Error(
                                 "EOF found looking for macro parameter text");
@@ -201,7 +204,7 @@ export function parseReplacementText(
             } else {
                 parseOptionalSpaces();
 
-                const tok = lexToken();
+                const tok = lexExpandedToken();
                 if (!tok) {
                     throw new Error(
                         "EOF found looking for macro parameter text");
@@ -210,7 +213,7 @@ export function parseReplacementText(
                     tok.category === BeginGroup
                 ) {
                     const toks = parseBalancedText();
-                    const endBrace = lexToken();
+                    const endBrace = lexExpandedToken();
 
                     if (!endBrace) {
                         throw new Error(
@@ -230,7 +233,7 @@ export function parseReplacementText(
                 }
             }
         } else {
-            const tok = lexToken();
+            const tok = lexExpandedToken();
             if (!tok) {
                 throw new Error("EOF found looking for macro parameter text");
             } else if (!value.equals(tok)) {

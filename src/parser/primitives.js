@@ -1,11 +1,13 @@
+// @flow
 import {Token, CharToken} from "../Token.js";
-import {lexToken, unLexToken} from "../lexer.js";
+import {unLexToken} from "../lexer.js";
+import {lexExpandedToken} from "../expand.js";
 import {Space, Other, BeginGroup, EndGroup} from "../Category.js";
 
 export function parseOptionalSpaces() {
-    let tok = lexToken();
+    let tok = lexExpandedToken();
     while (tok && tok instanceof CharToken && tok.category === Space) {
-        tok = lexToken();
+        tok = lexExpandedToken();
     }
     unLexToken(tok);
 }
@@ -14,14 +16,14 @@ const EQUALS = new CharToken("=", Other);
 
 export function parseEquals() {
     parseOptionalSpaces();
-    const tok = lexToken();
+    const tok = lexExpandedToken();
     if (tok && !tok.equals(EQUALS)) {
         unLexToken(tok);
     }
 }
 
 export function parseOptionalSpace() {
-    const tok = lexToken();
+    const tok = lexExpandedToken();
     if (!(tok && tok instanceof CharToken && tok.category === Space)) {
         unLexToken(tok);
     }
@@ -32,12 +34,12 @@ const MINUS = new CharToken("-", Other);
 
 function parseOptionalSigns(): number {
     let sign = 1;
-    let tok = lexToken();
+    let tok = lexExpandedToken();
     while (tok && (tok.equals(PLUS) || tok.equals(MINUS))) {
         if (tok.equals(MINUS)) {
             sign *= -1;
         }
-        tok = lexToken();
+        tok = lexExpandedToken();
     }
     unLexToken(tok);
     parseOptionalSpaces();
@@ -61,7 +63,7 @@ function digitValue(tok): number {
 
 function parseIntegerConstant(): number {
     let value = 0;
-    let tok = lexToken();
+    let tok = lexExpandedToken();
 
     if (!tok || !isDigit(tok)) {
         throw new Error("Invalid number!");
@@ -69,7 +71,7 @@ function parseIntegerConstant(): number {
 
     while (tok && isDigit(tok)) {
         value = 10 * value + digitValue(tok);
-        tok = lexToken();
+        tok = lexExpandedToken();
     }
 
     parseOptionalSpace();
@@ -82,7 +84,7 @@ const HEX_PREFIX = new CharToken("\"", Other);
 const CHAR_PREFIX = new CharToken("`", Other);
 
 function parseUnsignedNumber(): number {
-    const tok = lexToken();
+    const tok = lexExpandedToken();
 
     if (!tok) {
         throw new Error("missing token at beginning of number");
@@ -117,7 +119,7 @@ export function parseExplicitChars(chars: string) {
 
     for (let i = 0; i < chars.length; i++) {
         const char = chars[i];
-        const tok = lexToken();
+        const tok = lexExpandedToken();
 
         if (!tok) {
             throw new Error("EOF encountered while parsing explicit chars");
@@ -140,7 +142,7 @@ export function parseOptionalExplicitChars(chars: string) {
 
     for (let i = 0; i < chars.length; i++) {
         const char = chars[i];
-        const tok = lexToken();
+        const tok = lexExpandedToken();
 
         if (
             tok instanceof CharToken &&
@@ -165,7 +167,7 @@ export function parseBalancedText(): Token[] {
     const result: Token[] = [];
     let braceLevel = 0;
 
-    let tok = lexToken();
+    let tok = lexExpandedToken();
     while (
         tok &&
         (braceLevel > 0 ||
@@ -180,7 +182,7 @@ export function parseBalancedText(): Token[] {
         } else {
             result.push(tok);
         }
-        tok = lexToken();
+        tok = lexExpandedToken();
     }
 
     unLexToken(tok);

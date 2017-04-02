@@ -1,3 +1,4 @@
+// @flow
 import {Token} from "./Token.js";
 
 export class Parameter {

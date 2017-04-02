@@ -16,14 +16,6 @@ export class Token {
         throw new Error("unimplemented");
     }
 
-    isCharToken() {
-        throw new Error("unimplemented");
-    }
-
-    isControlSequence() {
-        throw new Error("unimplemented");
-    }
-
     toString(): string {
         throw new Error("unimplemented");
     }
