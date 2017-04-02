@@ -4,6 +4,7 @@ import {setSource, lexToken} from "../../lexer.js";
 import {resetState, setCount} from "../../state.js";
 import {CharToken, ControlSequence} from "../../Token.js";
 import {Letter} from "../../Category.js";
+import {parseAssignment} from "../assignment.js";
 
 import {expandConditional} from "../conditionals.js";
 
@@ -16,6 +17,14 @@ function expectParse(lines: string[], callback: () => void) {
     startParsing(lines);
     callback();
     expect(lexToken()).toEqual(null);
+}
+
+function doAssignment() {
+    const tok = lexToken();
+    if (!tok) {
+        throw new Error("EOF");
+    }
+    parseAssignment(tok);
 }
 
 describe("conditionals", () => {
@@ -46,6 +55,21 @@ describe("conditionals", () => {
         expectParse(["x\\else y\\fi%"], () => {
             expect(expandConditional(new ControlSequence("iffalse"))).toEqual([
                 new CharToken("y", Letter),
+            ]);
+        });
+    });
+
+    it("expands macros in true bodies but not false bodies", () => {
+        expectParse([
+            "\\def\\a{x\\else y}%",
+            "\\def\\b{z\\fi}%",
+            "\\iftrue w\\a\\b\\fi%",
+        ], () => {
+            doAssignment();
+            doAssignment();
+            expect(expandConditional(lexToken())).toEqual([
+                new CharToken("w", Letter),
+                new CharToken("x", Letter),
             ]);
         });
     });

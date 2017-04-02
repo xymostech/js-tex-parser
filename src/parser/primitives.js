@@ -68,7 +68,7 @@ function parseIntegerConstant(): number {
     let tok = lexExpandedToken();
 
     if (!tok || !isDigit(tok)) {
-        throw new Error(`Invalid number! ${tok && tok.toString()}`);
+        throw new Error(`Invalid number!`);
     }
 
     while (tok && isDigit(tok)) {
@@ -119,7 +119,9 @@ export function parse8BitNumber(): number {
 export function parseNumberValue(): number {
     const tok = lexExpandedToken();
     unLexToken(tok);
-    if (isVariableHead(tok)) {
+    if (!tok) {
+        throw new Error("EOF");
+    } else if (isVariableHead(tok)) {
         const variable = parseVariable();
         if (variable instanceof IntegerVariable) {
             return variable.getValue();

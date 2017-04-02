@@ -1,10 +1,9 @@
 // @flow
 import {Token, ControlSequence, CharToken} from "../Token.js";
 import {lexToken, unLexToken} from "../lexer.js";
-import {lexExpandedToken} from "../expand.js";
 import {
     parseNumberValue, parseEquals,
-    parseOptionalExplicitChars,
+    parseOptionalExplicitChars, parseOptionalSpaces,
 } from "./primitives.js";
 import {setMacro, setLet} from "../state.js";
 import {Active, Space, Other} from "../Category.js";
@@ -108,6 +107,7 @@ function parseArithmetic(tok) {
     if (tok.equals(ADVANCE)) {
         if (variable instanceof IntegerVariable) {
             parseOptionalExplicitChars("by");
+            parseOptionalSpaces();
             const value = parseNumberValue();
             variable.setValue(variable.getValue() + value);
         } else {
@@ -116,6 +116,7 @@ function parseArithmetic(tok) {
     } else if (tok.equals(MULTIPLY)) {
         if (variable instanceof IntegerVariable) {
             parseOptionalExplicitChars("by");
+            parseOptionalSpaces();
             const value = parseNumberValue();
             variable.setValue(variable.getValue() * value);
         } else {
@@ -124,6 +125,7 @@ function parseArithmetic(tok) {
     } else if (tok.equals(DIVIDE)) {
         if (variable instanceof IntegerVariable) {
             parseOptionalExplicitChars("by");
+            parseOptionalSpaces();
             const value = parseNumberValue();
             variable.setValue(
                 Math.trunc(variable.getValue() / value));

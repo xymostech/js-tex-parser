@@ -1,3 +1,4 @@
+// @flow
 import {Token, CharToken, ControlSequence} from "../Token.js";
 import {parseNumberValue} from "./primitives.js";
 import {Other} from "../Category.js";

@@ -20,26 +20,34 @@ function expectParse(lines: string[], callback: () => void) {
     expect(lexExpandedToken()).toEqual(null);
 }
 
+function doAssignment() {
+    const tok = lexExpandedToken();
+    if (!tok) {
+        throw new Error("EOF");
+    }
+    parseAssignment(tok);
+}
+
 describe("assignments", () => {
     describe("variable assignment", () => {
         it("sets integer variables", () => {
             expectParse(["\\count0=1%"], () => {
-                parseAssignment(lexExpandedToken());
+                doAssignment();
                 expect(getCount(0)).toEqual(1);
             });
 
             expectParse(["\\count255=1%"], () => {
-                parseAssignment(lexExpandedToken());
+                doAssignment();
                 expect(getCount(255)).toEqual(1);
             });
 
             expectParse(["\\count0 1%"], () => {
-                parseAssignment(lexExpandedToken());
+                doAssignment();
                 expect(getCount(0)).toEqual(1);
             });
 
             expectParse(["\\count0 1 %"], () => {
-                parseAssignment(lexExpandedToken());
+                doAssignment();
                 expect(getCount(0)).toEqual(1);
             });
         });
@@ -47,25 +55,25 @@ describe("assignments", () => {
 
     describe("arithmetic", () => {
         it("adds values", () => {
-            expectParse(["\\count0=1 \\advance\\count0 by2%"], () => {
-                parseAssignment(lexExpandedToken());
-                parseAssignment(lexExpandedToken());
+            expectParse(["\\count0=1 \\advance\\count0 by  2%"], () => {
+                doAssignment();
+                doAssignment();
                 expect(getCount(0)).toEqual(3);
             });
         });
 
         it("multiplies values", () => {
             expectParse(["\\count0=2 \\multiply\\count0 by4%"], () => {
-                parseAssignment(lexExpandedToken());
-                parseAssignment(lexExpandedToken());
+                doAssignment();
+                doAssignment();
                 expect(getCount(0)).toEqual(8);
             });
         });
 
         it("divides values", () => {
             expectParse(["\\count0=-20 \\divide\\count0 by6%"], () => {
-                parseAssignment(lexExpandedToken());
-                parseAssignment(lexExpandedToken());
+                doAssignment();
+                doAssignment();
                 expect(getCount(0)).toEqual(-3);
             });
         });
@@ -74,7 +82,7 @@ describe("assignments", () => {
     describe("macro assignment", () => {
         it("sets \\def macros", () => {
             expectParse(["\\def\\greet#1{hi #1}%"], () => {
-                parseAssignment(lexExpandedToken());
+                doAssignment();
                 expect(getMacro(new ControlSequence("greet")))
                     .toEqual(new Macro(
                         [new Parameter(1)],
@@ -89,8 +97,8 @@ describe("assignments", () => {
 
         it("allows you to redefine macros", () => {
             expectParse(["\\def\\a{a}\\def\\a{b}%"], () => {
-                parseAssignment(lexExpandedToken());
-                parseAssignment(lexExpandedToken());
+                doAssignment();
+                doAssignment();
                 expect(getMacro(new ControlSequence("a")))
                     .toEqual(new Macro(
                         [],
@@ -104,7 +112,7 @@ describe("assignments", () => {
     describe("let assignment", () => {
         it("sets \\let values", () => {
             expectParse(["\\let\\x = x%"], () => {
-                parseAssignment(lexExpandedToken());
+                doAssignment();
                 expect(getLet(new ControlSequence("x")))
                     .toEqual(new CharToken("x", Letter));
             });
@@ -112,8 +120,8 @@ describe("assignments", () => {
 
         it("\\lets values have other macro values", () => {
             expectParse(["\\def\\x{a}\\let\\y=\\x%"], () => {
-                parseAssignment(lexExpandedToken());
-                parseAssignment(lexExpandedToken());
+                doAssignment();
+                doAssignment();
                 const macro = new Macro(
                     [],
                     [new CharToken("a", Letter)]);

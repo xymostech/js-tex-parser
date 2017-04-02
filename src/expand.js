@@ -1,3 +1,4 @@
+// @flow
 import {getLet, getMacro} from "./state.js";
 import {lexToken, unLexToken} from "./lexer.js";
 import {Token} from "./Token.js";
