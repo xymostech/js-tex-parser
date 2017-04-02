@@ -67,6 +67,31 @@ export function setLet(token: Token, replace: Token) {
     }
 }
 
+type AllState = {
+    categoryMap: Map<string, Category>,
+    countRegisters: Map<number, number>,
+    macros: TokenMap<Macro>,
+    lets: TokenMap<Token>,
+};
+
+let groupLevels: AllState[] = [];
+export function pushGroup() {
+    groupLevels.push({
+        categoryMap: new Map(categoryMap),
+        countRegisters: new Map(countRegisters),
+        macros: new TokenMap(macros),
+        lets: new TokenMap(lets),
+    });
+}
+
+export function popGroup() {
+    const state = groupLevels.pop();
+    categoryMap = state.categoryMap;
+    countRegisters = state.countRegisters;
+    macros = state.macros;
+    lets = state.lets;
+}
+
 // State reset
 export function resetState() {
     categoryMap = new Map();
@@ -95,5 +120,7 @@ export function resetState() {
     countRegisters = new Map();
     macros = new TokenMap();
     lets = new TokenMap();
+
+    groupLevels = [];
 }
 resetState();

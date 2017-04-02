@@ -1,9 +1,10 @@
 // @flow
 import {unLexToken} from "../lexer.js";
 import {lexExpandedToken} from "../expand.js";
-import {Letter, Other, Space} from "../Category.js";
+import {Letter, Other, Space, BeginGroup, EndGroup} from "../Category.js";
 import {CharToken} from "../Token.js";
 import {parseAssignment} from "./assignment.js";
+import {pushGroup, popGroup} from "../state.js";
 
 class HorizontalListElem {
     static HBOX_CHAR = Symbol("horizontal box character");
@@ -38,6 +39,7 @@ export default function parseHorizontalList() {
 
     const result = [];
 
+    let groupLevel = 0;
     let tok = lexExpandedToken();
     while (tok) {
         if (tok instanceof CharToken) {
@@ -48,6 +50,17 @@ export default function parseHorizontalList() {
                 result.push(new HBoxChar(tok.ch));
             } else if (tok.category === Space) {
                 result.push(new HBoxChar(" "));
+            } else if (tok.category === BeginGroup) {
+                groupLevel++;
+                pushGroup();
+            } else if (tok.category === EndGroup) {
+                if (groupLevel === 0) {
+                    unLexToken(tok);
+                    break;
+                } else {
+                    groupLevel--;
+                    popGroup();
+                }
             } else {
                 throw new Error("unimplemented");
             }

@@ -7,9 +7,17 @@ export default class TokenMap<T> {
     charTokenMap: Map<Category, Map<string, T>>;
     controlSequenceMap: Map<string, T>;
 
-    constructor() {
-        this.controlSequenceMap = new Map();
-        this.charTokenMap = new Map();
+    constructor(copy?: TokenMap<T>) {
+        if (copy) {
+            this.controlSequenceMap = new Map(copy.controlSequenceMap);
+            this.charTokenMap = new Map();
+            for (const [category, chMap] of copy.charTokenMap) {
+                this.charTokenMap.set(category, new Map(chMap));
+            }
+        } else {
+            this.controlSequenceMap = new Map();
+            this.charTokenMap = new Map();
+        }
     }
 
     get(tok: Token): ?T {

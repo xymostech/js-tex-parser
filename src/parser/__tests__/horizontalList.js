@@ -40,4 +40,26 @@ describe("horizontal list parser", () => {
             new HBoxChar("x"),
         ]);
     });
+
+    describe("grouping", () => {
+        it("parses letters in groups", () => {
+            assertParsesTo(["a{b}c%"], [
+                new HBoxChar("a"),
+                new HBoxChar("b"),
+                new HBoxChar("c"),
+            ]);
+        });
+
+        it("leaves state in groups local", () => {
+            assertParsesTo([
+                "\\count0=1 \\ifnum\\count0=1 x\\fi%",
+                "{\\count0=2 \\ifnum\\count0=2 y\\fi}%",
+                "\\ifnum\\count0=1 z\\fi%",
+            ], [
+                new HBoxChar("x"),
+                new HBoxChar("y"),
+                new HBoxChar("z"),
+            ]);
+        });
+    });
 });
