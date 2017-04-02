@@ -126,7 +126,7 @@ export function parseReplacementText(
 
                 let foundDelimiter = false;
                 while (!foundDelimiter) {
-                    const tok = lexExpandedToken();
+                    const tok = lexToken();
 
                     if (!tok) {
                         throw new Error(
@@ -136,7 +136,7 @@ export function parseReplacementText(
 
                         foundDelimiter = delimiterToks.slice(1).every(
                             delimiter => {
-                                const tok = lexExpandedToken();
+                                const tok = lexToken();
                                 if (!tok) {
                                     throw new Error(
                                         "EOF found looking for macro " +
@@ -166,7 +166,7 @@ export function parseReplacementText(
                         result.push(tok);
                         result.push(...parseBalancedText());
 
-                        const endBrace = lexExpandedToken();
+                        const endBrace = lexToken();
                         if (!endBrace) {
                             throw new Error(
                                 "EOF found looking for macro parameter text");
@@ -204,7 +204,7 @@ export function parseReplacementText(
             } else {
                 parseOptionalSpaces();
 
-                const tok = lexExpandedToken();
+                const tok = lexToken();
                 if (!tok) {
                     throw new Error(
                         "EOF found looking for macro parameter text");
@@ -213,7 +213,7 @@ export function parseReplacementText(
                     tok.category === BeginGroup
                 ) {
                     const toks = parseBalancedText();
-                    const endBrace = lexExpandedToken();
+                    const endBrace = lexToken();
 
                     if (!endBrace) {
                         throw new Error(
@@ -233,7 +233,7 @@ export function parseReplacementText(
                 }
             }
         } else {
-            const tok = lexExpandedToken();
+            const tok = lexToken();
             if (!tok) {
                 throw new Error("EOF found looking for macro parameter text");
             } else if (!value.equals(tok)) {
