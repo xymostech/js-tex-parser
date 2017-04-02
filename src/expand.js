@@ -30,7 +30,7 @@ export function lexExpandedToken(): ?Token {
         unLexToken(letReplace);
         return lexExpandedToken();
     } else if (isConditionalHead(tok)) {
-        unLexMany(expandConditional(tok));
+        expandConditional(tok);
         return lexExpandedToken();
     } else if (isPrintHead(tok)) {
         unLexMany(expandPrint(tok));

@@ -39,6 +39,7 @@ export default function parseHorizontalList() {
     const result = [];
 
     let groupLevel = 0;
+
     let tok = lexExpandedToken();
     while (tok) {
         if (tok instanceof CharToken) {

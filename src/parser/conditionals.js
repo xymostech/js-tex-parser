@@ -3,7 +3,6 @@ import {lexToken} from "../lexer.js";
 import {lexExpandedToken} from "../expand.js";
 import {parseNumberValue} from "./primitives.js";
 import {Other} from "../Category.js";
-import {isAssignmentHead, parseAssignment} from "./assignment.js";
 
 const IFNUM = new ControlSequence("ifnum");
 const IFTRUE = new ControlSequence("iftrue");
@@ -13,66 +12,59 @@ const ELSE = new ControlSequence("else");
 
 export function isConditionalHead(tok: Token): boolean {
     return (
+        tok.equals(ELSE) ||
+        tok.equals(FI) ||
         tok.equals(IFNUM) ||
         tok.equals(IFTRUE) ||
         tok.equals(IFFALSE));
 }
 
-function parseTrueBody(): Token[] {
-    const result = [];
-
-    let tok = lexExpandedToken();
+function skipFromIf(): boolean {
+    let tok = lexToken();
     while (tok && !(tok.equals(FI) || tok.equals(ELSE))) {
-        if (isAssignmentHead(tok)) {
-            parseAssignment(tok);
-        } else {
-            result.push(tok);
-        }
-        tok = lexExpandedToken();
-    }
-    if (!tok || tok.equals(FI)) {
-        return result;
-    }
-
-    while (tok && !tok.equals(FI)) {
         tok = lexToken();
     }
-    return result;
+
+    if (!tok || tok.equals(ELSE)) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
-function parseFalseBody(): Token[] {
-    let tok = lexExpandedToken();
-    while (tok && !(tok.equals(FI) || tok.equals(ELSE))) {
+function skipFromElse() {
+    let tok = lexToken();
+    while (tok && !tok.equals(FI)) {
         tok = lexToken();
     }
-    if (!tok) {
-        throw new Error("EOF found while parsing false body");
-    } else if (tok.equals(FI)) {
-        return [];
-    }
-
-    const result = [];
-    tok = lexExpandedToken();
-    while (tok && !tok.equals(FI)) {
-        if (isAssignmentHead(tok)) {
-            parseAssignment(tok);
-        } else {
-            result.push(tok);
-        }
-        tok = lexExpandedToken();
-    }
-    return result;
 }
 
 const GREATER_THAN = new CharToken(">", Other);
 const EQUAL_TO = new CharToken("=", Other);
 const LESS_THAN = new CharToken("<", Other);
 
-export function expandConditional(tok: Token): Token[] {
-    if (tok.equals(IFTRUE)) {
-        return parseTrueBody();
+const conditionalLevels: boolean[] = [];
+
+function handleTrue() {
+    conditionalLevels.push(true);
+}
+
+function handleFalse() {
+    if (skipFromIf()) {
+        conditionalLevels.push(false);
+    }
+}
+
+export function expandConditional(tok: Token) {
+    if (tok.equals(FI)) {
+        conditionalLevels.pop();
+    } else if (tok.equals(ELSE)) {
+        conditionalLevels.pop();
+        skipFromElse();
+    } else if (tok.equals(IFTRUE)) {
+        handleTrue();
     } else if (tok.equals(IFFALSE)) {
-        return parseFalseBody();
+        handleFalse();
     } else if (tok.equals(IFNUM)) {
         const num1 = parseNumberValue();
         const relation = lexExpandedToken();
@@ -89,16 +81,16 @@ export function expandConditional(tok: Token): Token[] {
 
         if (relation.equals(GREATER_THAN)) {
             return num1 > num2
-                ? parseTrueBody()
-                : parseFalseBody();
+                ? handleTrue()
+                : handleFalse();
         } else if (relation.equals(EQUAL_TO)) {
             return num1 === num2
-                ? parseTrueBody()
-                : parseFalseBody();
+                ? handleTrue()
+                : handleFalse();
         } else {
             return num1 < num2
-                ? parseTrueBody()
-                : parseFalseBody();
+                ? handleTrue()
+                : handleFalse();
         }
     } else {
         throw new Error("unimplemented");
