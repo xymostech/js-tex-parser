@@ -73,7 +73,7 @@ function parseIntegerConstant(): number {
         value = 10 * value + digitValue(tok);
         tok = lexExpandedToken();
     }
-
+    unLexToken(tok);
     parseOptionalSpace();
 
     return value;

@@ -37,12 +37,9 @@ export default function parseHorizontalList() {
 
     const result = [];
 
-    while (true) { // eslint-disable-line no-constant-condition
-        const tok = lexExpandedToken();
-
-        if (!tok) {
-            break;
-        } else if (tok instanceof CharToken) {
+    let tok = lexExpandedToken();
+    while (tok) {
+        if (tok instanceof CharToken) {
             if (
                 tok.category === Letter ||
                 tok.category === Other
@@ -58,6 +55,7 @@ export default function parseHorizontalList() {
         } else {
             throw new Error("unimplemented");
         }
+        tok = lexExpandedToken();
     }
 
     return result;
