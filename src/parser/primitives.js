@@ -3,6 +3,8 @@ import {Token, CharToken} from "../Token.js";
 import {unLexToken} from "../lexer.js";
 import {lexExpandedToken} from "../expand.js";
 import {Space, Other, BeginGroup, EndGroup} from "../Category.js";
+import {isVariableHead, parseVariable} from "./variables.js";
+import {IntegerVariable} from "../Variable.js";
 
 export function parseOptionalSpaces() {
     let tok = lexExpandedToken();
@@ -66,7 +68,7 @@ function parseIntegerConstant(): number {
     let tok = lexExpandedToken();
 
     if (!tok || !isDigit(tok)) {
-        throw new Error("Invalid number!");
+        throw new Error(`Invalid number! ${tok && tok.toString()}`);
     }
 
     while (tok && isDigit(tok)) {
@@ -112,6 +114,22 @@ export function parse8BitNumber(): number {
         throw new Error(`Invalid 8-bit number: ${number}`);
     }
     return number;
+}
+
+export function parseNumberValue(): number {
+    const tok = lexExpandedToken();
+    unLexToken(tok);
+    if (isVariableHead(tok)) {
+        const variable = parseVariable();
+        if (variable instanceof IntegerVariable) {
+            return variable.getValue();
+        } else {
+            throw new Error(
+                "Got invalid variable type looking for integer variable");
+        }
+    } else {
+        return parseNumber();
+    }
 }
 
 export function parseExplicitChars(chars: string) {

@@ -3,7 +3,7 @@ import {Token, ControlSequence, CharToken} from "../Token.js";
 import {lexToken, unLexToken} from "../lexer.js";
 import {lexExpandedToken} from "../expand.js";
 import {
-    parseNumber, parseEquals, parseOptionalSpace,
+    parseNumberValue, parseEquals,
     parseOptionalExplicitChars,
 } from "./primitives.js";
 import {setMacro, setLet} from "../state.js";
@@ -87,7 +87,7 @@ function parseVariableAssignment(tok) {
     const variable = parseVariable();
     if (variable instanceof IntegerVariable) {
         parseEquals();
-        const value = parseNumber();
+        const value = parseNumberValue();
         variable.setValue(value);
     } else {
         throw new Error("unimplemented");
@@ -108,7 +108,7 @@ function parseArithmetic(tok) {
     if (tok.equals(ADVANCE)) {
         if (variable instanceof IntegerVariable) {
             parseOptionalExplicitChars("by");
-            const value = parseNumber();
+            const value = parseNumberValue();
             variable.setValue(variable.getValue() + value);
         } else {
             throw new Error("unimplemented");
@@ -116,7 +116,7 @@ function parseArithmetic(tok) {
     } else if (tok.equals(MULTIPLY)) {
         if (variable instanceof IntegerVariable) {
             parseOptionalExplicitChars("by");
-            const value = parseNumber();
+            const value = parseNumberValue();
             variable.setValue(variable.getValue() * value);
         } else {
             throw new Error("unimplemented");
@@ -124,7 +124,7 @@ function parseArithmetic(tok) {
     } else if (tok.equals(DIVIDE)) {
         if (variable instanceof IntegerVariable) {
             parseOptionalExplicitChars("by");
-            const value = parseNumber();
+            const value = parseNumberValue();
             variable.setValue(
                 Math.trunc(variable.getValue() / value));
         } else {
@@ -236,29 +236,18 @@ function parseMacroAssignment(tok) {
     }
 }
 
-function isAssignmentHead(tok: Token) {
+export function isAssignmentHead(tok: Token) {
     return (
         isNonMacroAssignmentHead(tok) ||
         isMacroAssignmentHead(tok));
 }
 
-export function parseAssignment(): boolean {
-    const tok = lexExpandedToken();
-
-    if (!tok) {
-        return false;
-    }
-
-    if (!isAssignmentHead(tok)) {
-        unLexToken(tok);
-        return false;
-    }
-
+export function parseAssignment(tok: Token) {
     if (isNonMacroAssignmentHead(tok)) {
         parseNonMacroAssignment(tok);
     } else if (isMacroAssignmentHead(tok)) {
         parseMacroAssignment(tok);
+    } else {
+        throw new Error("non-macro-head tok passed to parseAssignment");
     }
-
-    return true;
 }

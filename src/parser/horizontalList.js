@@ -2,8 +2,8 @@
 import {unLexToken} from "../lexer.js";
 import {lexExpandedToken} from "../expand.js";
 import {Letter, Other, Space, BeginGroup, EndGroup} from "../Category.js";
-import {CharToken} from "../Token.js";
-import {parseAssignment} from "./assignment.js";
+import {CharToken, ControlSequence} from "../Token.js";
+import {isAssignmentHead, parseAssignment} from "./assignment.js";
 import {pushGroup, popGroup} from "../state.js";
 
 class HorizontalListElem {
@@ -36,7 +36,6 @@ export class HPenalty extends HorizontalListElem {
 }
 
 export default function parseHorizontalList() {
-
     const result = [];
 
     let groupLevel = 0;
@@ -64,13 +63,12 @@ export default function parseHorizontalList() {
             } else {
                 throw new Error("unimplemented");
             }
+        } else if (tok.equals(new ControlSequence("par"))) {
+            result.push(new HBoxChar(" "));
+        } else if (isAssignmentHead(tok)) {
+            parseAssignment(tok);
         } else {
-            unLexToken(tok);
-            if (parseAssignment()) {
-                // do nothing, we did the assignment!
-            } else {
-                throw new Error("unimplemented");
-            }
+            throw new Error(`unimplemented ${tok && tok.toString()}`);
         }
         tok = lexExpandedToken();
     }
