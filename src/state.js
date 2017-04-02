@@ -6,6 +6,7 @@ import {
 } from "./Category.js";
 import {Macro} from "./Macro.js";
 import {Token} from "./Token.js";
+import TokenMap from "./TokenMap.js";
 
 // Categories
 let categoryMap: Map<string, Category> = new Map();
@@ -37,17 +38,10 @@ export function getCount(register: number): number {
 }
 
 // Macros
-let macros: Map<Token, Macro> = new Map();
+let macros: TokenMap<Macro> = new TokenMap();
 
 export function getMacro(token: Token): ?Macro {
-    // NOTE(xymostech): we can't just call `macros.get(token)` because we need
-    // to manually check equality of the tokens.
-    for (const [tok, macro] of macros) {
-        if (tok.equals(token)) {
-            return macro;
-        }
-    }
-    return null;
+    return macros.get(token);
 }
 
 export function setMacro(token: Token, macro: Macro) {
@@ -55,17 +49,10 @@ export function setMacro(token: Token, macro: Macro) {
 }
 
 // Let values
-let lets: Map<Token, Token> = new Map();
+let lets: TokenMap<Token> = new TokenMap();
 
 export function getLet(token: Token): ?Token {
-    // NOTE(xymostech): we can't just call `lets.get(token)` because we need
-    // to manually check equality of the tokens.
-    for (const [tok, replace] of lets) {
-        if (tok.equals(token)) {
-            return replace;
-        }
-    }
-    return null;
+    return lets.get(token);
 }
 
 export function setLet(token: Token, replace: Token) {
@@ -106,7 +93,7 @@ export function resetState() {
     categoryMap.set("$", MathShift);
 
     countRegisters = new Map();
-    macros = new Map();
-    lets = new Map();
+    macros = new TokenMap();
+    lets = new TokenMap();
 }
 resetState();

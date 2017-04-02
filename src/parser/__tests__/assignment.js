@@ -85,6 +85,19 @@ describe("assignments", () => {
                         ]));
             });
         });
+
+        it("allows you to redefine macros", () => {
+            expectParse(["\\def\\a{a}\\def\\a{b}%"], () => {
+                parseAssignment();
+                parseAssignment();
+                expect(getMacro(new ControlSequence("a")))
+                    .toEqual(new Macro(
+                        [],
+                        [
+                            new CharToken("b", Letter),
+                        ]));
+            });
+        });
     });
 
     describe("let assignment", () => {
