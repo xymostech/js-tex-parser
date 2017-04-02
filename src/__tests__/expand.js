@@ -27,19 +27,19 @@ describe("lexExpandedToken", () => {
 
     it("lexes \\let replacements", () => {
         expectParse(["\\let\\a=b\\a%"], () => {
-            parseAssignment();
+            parseAssignment(lexExpandedToken());
             expect(lexExpandedToken()).toEqual(new CharToken("b", Letter));
         });
     });
 
     it("lexes \\def replacements", () => {
         expectParse(["\\def\\a{b}\\a%"], () => {
-            parseAssignment();
+            parseAssignment(lexExpandedToken());
             expect(lexExpandedToken()).toEqual(new CharToken("b", Letter));
         });
 
         expectParse(["\\def\\a#1{a#1b}\\a x%"], () => {
-            parseAssignment();
+            parseAssignment(lexExpandedToken());
             expect(lexExpandedToken()).toEqual(new CharToken("a", Letter));
             expect(lexExpandedToken()).toEqual(new CharToken("x", Letter));
             expect(lexExpandedToken()).toEqual(new CharToken("b", Letter));
