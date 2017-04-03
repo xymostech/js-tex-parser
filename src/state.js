@@ -19,7 +19,7 @@ export function getCategory(c: string): Category {
 // Registers
 let countRegisters: Map<number, number> = new Map();
 
-export function setCount(register: number, value: number) {
+export function setCount(register: number, value: number, global: boolean) {
     if (register < 0 || register > 255) {
         throw new Error(`Trying to set invalid count register: ${register}`);
     }
@@ -27,19 +27,11 @@ export function setCount(register: number, value: number) {
         throw new Error(`Invalid count register value: ${value}`);
     }
     countRegisters.set(register, value);
-}
-
-export function globalSetCount(register: number, value: number) {
-    if (register < 0 || register > 255) {
-        throw new Error(`Trying to set invalid count register: ${register}`);
+    if (global) {
+        groupLevels.forEach(level => {
+            level.countRegisters.set(register, value);
+        });
     }
-    if (!Number.isInteger(value) || value < -2147483647 || value > 2147483647) {
-        throw new Error(`Invalid count register value: ${value}`);
-    }
-    countRegisters.set(register, value);
-    groupLevels.forEach(level => {
-        level.countRegisters.set(register, value);
-    });
 }
 
 export function getCount(register: number): number {
@@ -57,15 +49,13 @@ export function getMacro(token: Token): ?Macro {
     return macros.get(token);
 }
 
-export function setMacro(token: Token, macro: Macro) {
+export function setMacro(token: Token, macro: Macro, global: boolean) {
     macros.set(token, macro);
-}
-
-export function globalSetMacro(token: Token, macro: Macro) {
-    macros.set(token, macro);
-    groupLevels.forEach(level => {
-        level.macros.set(token, macro);
-    });
+    if (global) {
+        groupLevels.forEach(level => {
+            level.macros.set(token, macro);
+        });
+    }
 }
 
 // Let values
@@ -75,28 +65,26 @@ export function getLet(token: Token): ?Token {
     return lets.get(token);
 }
 
-export function setLet(token: Token, replace: Token) {
+export function setLet(token: Token, replace: Token, global: boolean) {
     const macro = getMacro(replace);
     if (macro) {
         // If `replace` referred to a macro, set `token` to refer to that macro
         // as well.
-        setMacro(token, macro);
+        setMacro(token, macro, false);
     } else {
         // Otherwise, store the plain token -> token mapping.
         lets.set(token, replace);
     }
-}
-
-export function globalSetLet(token: Token, replace: Token) {
-    setLet(token, replace);
-    groupLevels.forEach(level => {
-        const macro = level.macros.get(replace);
-        if (macro) {
-            level.macros.set(token, macro);
-        } else {
-            level.lets.set(token, replace);
-        }
-    });
+    if (global) {
+        groupLevels.forEach(level => {
+            const macro = level.macros.get(replace);
+            if (macro) {
+                level.macros.set(token, macro);
+            } else {
+                level.lets.set(token, replace);
+            }
+        });
+    }
 }
 
 type AllState = {
@@ -135,10 +123,10 @@ export function resetState() {
             categoryMap.set(ch, Other);
         }
     }
-    categoryMap.set("\\", Escape);
     categoryMap.set("\u0000", Ignored);
-    categoryMap.set("%", Comment);
     categoryMap.set("\n", EndOfLine);
+    categoryMap.set("\\", Escape);
+    categoryMap.set("%", Comment);
     categoryMap.set(" ", Space);
     categoryMap.set("\u00ff", Invalid);
 

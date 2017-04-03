@@ -5,7 +5,7 @@ import {
     parseNumberValue, parseEquals,
     parseOptionalExplicitChars, parseOptionalSpaces,
 } from "./primitives.js";
-import {setMacro, globalSetMacro, setLet, globalSetLet} from "../state.js";
+import {setMacro, setLet} from "../state.js";
 import {Active, Space, Other} from "../Category.js";
 import {parseDefinitionText} from "./macros.js";
 import {isVariableHead, parseVariable} from "./variables.js";
@@ -172,11 +172,7 @@ function parseLetAssignment(tok, global) {
         const to = tok;
 
         if (to) {
-            if (global) {
-                globalSetLet(set, to);
-            } else {
-                setLet(set, to);
-            }
+            setLet(set, to, global);
         } else {
             throw new Error(`EOF found while parsing \\let`);
         }
@@ -237,11 +233,7 @@ function parseMacroAssignment(tok, global) {
         const set = parseControlSequenceUnexpanded();
         const macro = parseDefinitionText();
 
-        if (global || tok.equals(GDEF)) {
-            globalSetMacro(set, macro);
-        } else {
-            setMacro(set, macro);
-        }
+        setMacro(set, macro, global || tok.equals(GDEF));
     } else {
         throw new Error("unimplemented");
     }

@@ -1,5 +1,5 @@
 // @flow
-import {setCount, globalSetCount, getCount} from "./state.js";
+import {setCount, getCount} from "./state.js";
 
 const INTEGER_VARIABLE = Symbol("integer variable");
 
@@ -36,11 +36,7 @@ export class CountVariable extends IntegerVariable {
     }
 
     setValue(value: number, global: boolean) {
-        if (global) {
-            globalSetCount(this.index, value);
-        } else {
-            setCount(this.index, value);
-        }
+        setCount(this.index, value, global);
     }
 
     getValue(): number {

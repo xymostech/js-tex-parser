@@ -2,7 +2,7 @@
 /* global expect */
 import {setSource, lexToken} from "../../lexer.js";
 import {resetState, setCount} from "../../state.js";
-import {CharToken, ControlSequence} from "../../Token.js";
+import {CharToken} from "../../Token.js";
 import {Letter} from "../../Category.js";
 import {parseAssignment} from "../assignment.js";
 import {lexExpandedToken} from "../../expand.js";
@@ -106,13 +106,13 @@ describe("conditionals", () => {
 
         it("parses variables", () => {
             expectParse(["\\ifnum\\count0>1 x\\fi%"], () => {
-                setCount(0, 2);
+                setCount(0, 2, false);
                 expandConditional(lexToken());
                 expect(lexExpandedToken()).toEqual(new CharToken("x", Letter));
             });
 
             expectParse(["\\ifnum\\count0>2 x\\fi%"], () => {
-                setCount(0, 1);
+                setCount(0, 1, false);
                 expandConditional(lexToken());
             });
         });
