@@ -43,55 +43,91 @@ export function getCount(register: number): number {
 }
 
 // Macros
-let macros: TokenMap<Macro> = new TokenMap();
-
-export function getMacro(token: Token): ?Macro {
-    return macros.get(token);
+class MacroDef {
+    macro: Macro;
+    constructor(macro: Macro) {
+        this.macro = macro;
+    }
 }
 
-export function setMacro(token: Token, macro: Macro, global: boolean) {
-    macros.set(token, macro);
+class LetDef {
+    tok: Token;
+    constructor(tok: Token) {
+        this.tok = tok;
+    }
+}
+
+class ChardefDef {
+    char: string;
+    constructor(char: string) {
+        this.char = char;
+    }
+}
+
+type TokDef = MacroDef | LetDef | ChardefDef;
+let tokdefs: TokenMap<TokDef> = new TokenMap();
+
+export function setTokDef(token: Token, val: TokDef, global: boolean) {
+    tokdefs.set(token, val);
     if (global) {
         groupLevels.forEach(level => {
-            level.macros.set(token, macro);
+            level.tokdefs.set(token, val);
         });
     }
 }
 
-// Let values
-let lets: TokenMap<Token> = new TokenMap();
+export function getMacro(token: Token): ?Macro {
+    const tokdef = tokdefs.get(token);
+    if (tokdef && tokdef instanceof MacroDef) {
+        return tokdef.macro;
+    }
+}
+
+export function setMacro(token: Token, macro: Macro, global: boolean) {
+    setTokDef(token, new MacroDef(macro), global);
+}
 
 export function getLet(token: Token): ?Token {
-    return lets.get(token);
+    const tokdef = tokdefs.get(token);
+    if (tokdef && tokdef instanceof LetDef) {
+        return tokdef.tok;
+    }
 }
 
 export function setLet(token: Token, replace: Token, global: boolean) {
-    const macro = getMacro(replace);
-    if (macro) {
-        // If `replace` referred to a macro, set `token` to refer to that macro
-        // as well.
-        setMacro(token, macro, false);
+    const tokdef = tokdefs.get(replace);
+    if (tokdef) {
+        tokdefs.set(token, tokdef);
     } else {
-        // Otherwise, store the plain token -> token mapping.
-        lets.set(token, replace);
+        tokdefs.set(token, new LetDef(replace));
     }
     if (global) {
         groupLevels.forEach(level => {
-            const macro = level.macros.get(replace);
-            if (macro) {
-                level.macros.set(token, macro);
+            const tokdef = level.tokdefs.get(replace);
+            if (tokdef) {
+                level.tokdefs.set(token, tokdef);
             } else {
-                level.lets.set(token, replace);
+                level.tokdefs.set(token, new LetDef(replace));
             }
         });
     }
 }
 
+export function getChardef(token: Token): ?string {
+    const tokdef = tokdefs.get(token);
+    if (tokdef && tokdef instanceof ChardefDef) {
+        return tokdef.char;
+    }
+}
+
+export function setChardef(token: Token, replace: string, global: boolean) {
+    setTokDef(token, new ChardefDef(replace), global);
+}
+
 type AllState = {
     categoryMap: Map<string, Category>,
     countRegisters: Map<number, number>,
-    macros: TokenMap<Macro>,
-    lets: TokenMap<Token>,
+    tokdefs: TokenMap<TokDef>,
 };
 
 let groupLevels: AllState[] = [];
@@ -99,8 +135,7 @@ export function pushGroup() {
     groupLevels.push({
         categoryMap: new Map(categoryMap),
         countRegisters: new Map(countRegisters),
-        macros: new TokenMap(macros),
-        lets: new TokenMap(lets),
+        tokdefs: new TokenMap(tokdefs),
     });
 }
 
@@ -108,8 +143,7 @@ export function popGroup() {
     const state = groupLevels.pop();
     categoryMap = state.categoryMap;
     countRegisters = state.countRegisters;
-    macros = state.macros;
-    lets = state.lets;
+    tokdefs = state.tokdefs;
 }
 
 // State reset
@@ -138,8 +172,7 @@ export function resetState() {
     categoryMap.set("$", MathShift);
 
     countRegisters = new Map();
-    macros = new TokenMap();
-    lets = new TokenMap();
+    tokdefs = new TokenMap();
 
     groupLevels = [];
 }

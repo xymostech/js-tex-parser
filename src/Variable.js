@@ -1,5 +1,6 @@
 // @flow
-import {setCount, getCount} from "./state.js";
+import {setCount, getCount, setChardef} from "./state.js";
+import {Token} from "./Token.js";
 
 const INTEGER_VARIABLE = Symbol("integer variable");
 
@@ -41,5 +42,22 @@ export class CountVariable extends IntegerVariable {
 
     getValue(): number {
         return getCount(this.index);
+    }
+}
+
+export class CharDefVariable extends IntegerVariable {
+    token: Token;
+
+    constructor(token: Token) {
+        super();
+        this.token = token;
+    }
+
+    setValue(value: number, global: boolean) {
+        setChardef(this.token, String.fromCharCode(value), global);
+    }
+
+    getValue(): number {
+        throw new Error("You can only set chardef variables.");
     }
 }

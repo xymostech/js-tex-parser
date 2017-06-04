@@ -33,3 +33,37 @@ export type Category = (
     typeof Active |
     typeof Comment |
     typeof Invalid);
+
+const ALL_CATEGORIES = [
+    Escape,
+    BeginGroup,
+    EndGroup,
+    MathShift,
+    AlignmentTab,
+    EndOfLine,
+    Parameter,
+    Superscript,
+    Subscript,
+    Ignored,
+    Space,
+    Letter,
+    Other,
+    Active,
+    Comment,
+    Invalid,
+];
+
+export function categoryToNumber(cat: Category): number {
+    const index = ALL_CATEGORIES.indexOf(cat);
+    if (index === -1) {
+        throw new Error(`Invalid category in lookup: ${cat}`);
+    }
+    return index;
+}
+
+export function numberToCategory(num: number): Category {
+    if (num < 0 || num >= ALL_CATEGORIES.length) {
+        throw new Error(`Invalid category number: ${num}`);
+    }
+    return ALL_CATEGORIES[num];
+}

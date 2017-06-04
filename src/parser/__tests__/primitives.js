@@ -19,6 +19,8 @@ describe("parseNumber", () => {
 
     it("parses numbers", () => {
         assertParseNumber(["123%"], 123);
+        assertParseNumber(["`a%"], 97);
+        assertParseNumber(["`\\a%"], 97);
     });
 
     it("parses signs", () => {

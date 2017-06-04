@@ -1,7 +1,8 @@
 // @flow
-import {Token, CharToken} from "../Token.js";
-import {unLexToken} from "../lexer.js";
+import {Token, CharToken, ControlSequence} from "../Token.js";
+import {lexToken, unLexToken} from "../lexer.js";
 import {lexExpandedToken} from "../expand.js";
+import {getChardef} from "../state.js";
 import {Space, Other, BeginGroup, EndGroup} from "../Category.js";
 import {isVariableHead, parseVariable} from "./variables.js";
 import {IntegerVariable} from "../Variable.js";
@@ -81,6 +82,65 @@ function parseIntegerConstant(): number {
     return value;
 }
 
+function parseCharToken(): number {
+    const tok = lexToken();
+
+    if (!tok) {
+        throw new Error("EOF");
+    } else if (tok instanceof CharToken) {
+        parseOptionalSpace();
+        return tok.ch.charCodeAt(0);
+    } else if (tok instanceof ControlSequence && tok.value.length === 1) {
+        parseOptionalSpace();
+        return tok.value[0].charCodeAt(0);
+    } else {
+        throw new Error(
+            `Invalid token parsing char token: ${tok.toString()}`);
+    }
+}
+
+// TODO(emily): deduplicate
+const COUNT = new ControlSequence("count");
+const CATCODE = new ControlSequence("catcode");
+
+function isInternalIntegerHead(tok: Token): boolean {
+    if (
+        tok.equals(COUNT) ||
+        tok.equals(CATCODE)
+    ) {
+        return true;
+    } else if (getChardef(tok) != null) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+function parseInternalInteger(): number {
+    const tok = lexExpandedToken();
+
+    if (!tok) {
+        throw new Error("EOF");
+    } else if (isVariableHead(tok)) {
+        unLexToken(tok);
+        const variable = parseVariable();
+        // TODO(emily): Not all variables?
+        if (variable instanceof IntegerVariable) {
+            return variable.getValue();
+        } else {
+            throw new Error(
+                "Got invalid variable type looking for integer variable");
+        }
+    } else {
+        const charDefVal = getChardef(tok);
+        if (charDefVal != null) {
+            return charDefVal.charCodeAt(0);
+        } else {
+            throw new Error("unimplemented");
+        }
+    }
+}
+
 const OCTAL_PREFIX = new CharToken("'", Other);
 const HEX_PREFIX = new CharToken("\"", Other);
 const CHAR_PREFIX = new CharToken("`", Other);
@@ -95,7 +155,10 @@ function parseUnsignedNumber(): number {
     } else if (tok.equals(HEX_PREFIX)) {
         throw new Error("unimplemented");
     } else if (tok.equals(CHAR_PREFIX)) {
-        throw new Error("unimplemented");
+        return parseCharToken();
+    } else if (isInternalIntegerHead(tok)) {
+        unLexToken(tok);
+        return parseInternalInteger();
     } else {
         unLexToken(tok);
         return parseIntegerConstant();
@@ -118,6 +181,7 @@ export function parse8BitNumber(): number {
 
 export function parseNumberValue(): number {
     const tok = lexExpandedToken();
+
     unLexToken(tok);
     if (!tok) {
         throw new Error("EOF");

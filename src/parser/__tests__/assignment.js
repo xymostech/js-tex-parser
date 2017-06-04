@@ -2,7 +2,7 @@
 /* global expect */
 import {setSource} from "../../lexer.js";
 import {
-    resetState, getCount, getMacro, getLet, pushGroup, popGroup,
+    resetState, getCount, getMacro, getLet, pushGroup, popGroup, getChardef,
 } from "../../state.js";
 import {CharToken, ControlSequence} from "../../Token.js";
 import {Macro, Parameter} from "../../Macro.js";
@@ -51,6 +51,24 @@ describe("assignments", () => {
             expectParse(["\\count0 1 %"], () => {
                 doAssignment();
                 expect(getCount(0)).toEqual(1);
+            });
+        });
+
+        it("sets chardef variables", () => {
+            expectParse(["\\chardef\\a=97%"], () => {
+                doAssignment();
+                expect(getChardef(new ControlSequence("a"))).toEqual('a');
+            });
+        });
+
+        it("allows setting integer variables from chardefs", () => {
+            expectParse([
+                "\\chardef\\a=5%",
+                "\\count0=\\a%",
+            ], () => {
+                doAssignment();
+                doAssignment();
+                expect(getCount(0)).toEqual(5);
             });
         });
     });
