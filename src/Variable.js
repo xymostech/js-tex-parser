@@ -1,5 +1,6 @@
 // @flow
-import {setCount, getCount, setChardef} from "./state.js";
+import {setCount, getCount, setCategory, getCategory, setChardef} from "./state.js";
+import {categoryToNumber, numberToCategory} from "./Category.js";
 import {Token} from "./Token.js";
 
 const INTEGER_VARIABLE = Symbol("integer variable");
@@ -42,6 +43,23 @@ export class CountVariable extends IntegerVariable {
 
     getValue(): number {
         return getCount(this.index);
+    }
+}
+
+export class CatCodeVariable extends IntegerVariable {
+    character: string;
+
+    constructor(character: string) {
+        super();
+        this.character = character;
+    }
+
+    setValue(value: number, global: boolean) {
+        setCategory(this.character, numberToCategory(value), global);
+    }
+
+    getValue(): number {
+        return categoryToNumber(getCategory(this.character));
     }
 }
 

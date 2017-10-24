@@ -1,14 +1,13 @@
 // @flow
 import {CharToken} from "../Token.js";
-import {lexToken, unLexToken} from "../lexer.js";
+import {lexToken, tryLexTokens} from "../lexer.js";
 import {lexExpandedToken} from "../expand.js";
 import {Macro, Parameter} from "../Macro.js";
 import {Token} from "../Token.js";
 import {BeginGroup, EndGroup, Parameter as ParameterCat, Other} from "../Category.js";
 import {parseBalancedText, parseOptionalSpaces} from "./primitives.js";
 
-function parseParameterNumber(): number {
-    const tok = lexToken();
+function parseParameterNumber(tok: Token): number {
     if (
         tok &&
         tok instanceof CharToken &&
@@ -42,8 +41,7 @@ export function parseDefinitionText(): Macro {
                 endTok = nextTok;
                 break;
             } else {
-                unLexToken(nextTok);
-                const index = parseParameterNumber();
+                const index = parseParameterNumber(nextTok);
                 parameterText.push(new Parameter(index));
             }
         } else {
@@ -73,8 +71,7 @@ export function parseDefinitionText(): Macro {
             ) {
                 replacementText.push(nextTok);
             } else {
-                unLexToken(nextTok);
-                const index = parseParameterNumber();
+                const index = parseParameterNumber(nextTok);
                 replacementText.push(new Parameter(index));
             }
         } else if (tok instanceof CharToken && tok.category === BeginGroup) {
@@ -102,7 +99,6 @@ export function parseDefinitionText(): Macro {
 
 export function parseReplacementText(
     macro: Macro,
-    // lexExpandedToken: () => ?Token
 ): Map<number, Token[]> {
     const results = new Map();
 
@@ -126,15 +122,8 @@ export function parseReplacementText(
 
                 let foundDelimiter = false;
                 while (!foundDelimiter) {
-                    const tok = lexToken();
-
-                    if (!tok) {
-                        throw new Error(
-                            "EOF found looking for macro parameter text");
-                    } else if (tok.equals(delimiterToks[0])) {
-                        const delimiterParsed: Token[] = [];
-
-                        foundDelimiter = delimiterToks.slice(1).every(
+                    foundDelimiter = tryLexTokens((accept, reject) => {
+                        const found = delimiterToks.every(
                             delimiter => {
                                 const tok = lexToken();
                                 if (!tok) {
@@ -142,23 +131,25 @@ export function parseReplacementText(
                                         "EOF found looking for macro " +
                                         "parameter text");
                                 } else if (tok.equals(delimiter)) {
-                                    delimiterParsed.push(tok);
                                     return true;
                                 } else {
-                                    delimiterParsed.push(tok);
                                     return false;
                                 }
                             });
+                        return reject(found);
+                    });
 
-                        delimiterParsed.reverse();
-                        delimiterParsed.forEach(tok => {
-                            unLexToken(tok);
-                        });
-                        if (foundDelimiter) {
-                            unLexToken(tok);
-                        } else {
-                            result.push(tok);
-                        }
+                    if (foundDelimiter) {
+                        break;
+                    }
+
+                    const tok = lexToken();
+
+                    if (!tok) {
+                        throw new Error(
+                            "EOF found looking for macro parameter text");
+                    } else if (tok.equals(delimiterToks[0])) {
+                        result.push(tok);
                     } else if (
                         tok instanceof CharToken &&
                         tok.category === BeginGroup

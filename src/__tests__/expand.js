@@ -18,14 +18,6 @@ function expectParse(lines: string[], callback: () => void) {
     expect(lexExpandedToken()).toEqual(null);
 }
 
-function doAssignment() {
-    const tok = lexExpandedToken();
-    if (!tok) {
-        throw new Error("EOF");
-    }
-    parseAssignment(tok);
-}
-
 describe("lexExpandedToken", () => {
     it("lexes normal tokens unexpanded", () => {
         expectParse(["a%"], () => {
@@ -35,21 +27,31 @@ describe("lexExpandedToken", () => {
 
     it("lexes \\let replacements", () => {
         expectParse(["\\let\\a=b\\a%"], () => {
-            doAssignment();
+            parseAssignment();
             expect(lexExpandedToken()).toEqual(new CharToken("b", Letter));
         });
     });
 
     it("lexes \\def replacements", () => {
         expectParse(["\\def\\a{b}\\a%"], () => {
-            doAssignment();
+            parseAssignment();
             expect(lexExpandedToken()).toEqual(new CharToken("b", Letter));
         });
 
         expectParse(["\\def\\a#1{a#1b}\\a x%"], () => {
-            doAssignment();
+            parseAssignment();
             expect(lexExpandedToken()).toEqual(new CharToken("a", Letter));
             expect(lexExpandedToken()).toEqual(new CharToken("x", Letter));
+            expect(lexExpandedToken()).toEqual(new CharToken("b", Letter));
+        });
+    });
+
+    it("expands replacements in the correct order", () => {
+        expectParse(["\\def\\b{c}\\def\\a{a\\b b}\\a%"], () => {
+            parseAssignment();
+            parseAssignment();
+            expect(lexExpandedToken()).toEqual(new CharToken("a", Letter));
+            expect(lexExpandedToken()).toEqual(new CharToken("c", Letter));
             expect(lexExpandedToken()).toEqual(new CharToken("b", Letter));
         });
     });
@@ -62,7 +64,7 @@ describe("lexExpandedToken", () => {
         });
 
         expectParse(["\\count0=34 \\number\\count0%"], () => {
-            doAssignment();
+            parseAssignment();
             expect(lexExpandedToken()).toEqual(new CharToken("3", Other));
             expect(lexExpandedToken()).toEqual(new CharToken("4", Other));
         });

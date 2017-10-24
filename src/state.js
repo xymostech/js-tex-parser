@@ -16,6 +16,15 @@ export function getCategory(c: string): Category {
     return category == null ? Other : category;
 }
 
+export function setCategory(c: string, v: Category, global: boolean) {
+    categoryMap.set(c, v);
+    if (global) {
+        groupLevels.forEach(level => {
+            level.categoryMap.set(c, v);
+        });
+    }
+}
+
 // Registers
 let countRegisters: Map<number, number> = new Map();
 

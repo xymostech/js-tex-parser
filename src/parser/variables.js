@@ -1,16 +1,17 @@
 // @flow
 import {lexToken} from "../lexer.js";
-import {lexExpandedToken} from "../expand.js";
 import {Variable, CountVariable, CatCodeVariable, CharDefVariable} from "../Variable.js";
 import {Token, ControlSequence} from "../Token.js";
 import {parse8BitNumber} from "./primitives.js";
+import {peekExpandedToken, lexExpandedToken} from "../expand.js";
 
 const COUNT = new ControlSequence("count");
 const CATCODE = new ControlSequence("catcode");
 const CHARDEF = new ControlSequence("chardef");
 
-export function isVariableHead(tok: Token): boolean {
-    return (
+export function isVariableHead(): boolean {
+    const tok = peekExpandedToken();
+    return !!tok && (
         tok.equals(COUNT) ||
         tok.equals(CATCODE) ||
         tok.equals(CHARDEF));
@@ -18,7 +19,6 @@ export function isVariableHead(tok: Token): boolean {
 
 export function parseVariable(): Variable {
     const tok = lexExpandedToken();
-
     if (!tok) {
         throw new Error("Encountered EOF while parsing variable");
     } else if (tok.equals(COUNT)) {

@@ -22,41 +22,43 @@ function expectParse(lines: string[], callback: () => void) {
     expect(lexExpandedToken()).toEqual(null);
 }
 
-function doAssignment() {
-    const tok = lexExpandedToken();
-    if (!tok) {
-        throw new Error("EOF");
-    }
-    parseAssignment(tok);
-}
-
 describe("assignments", () => {
     describe("variable assignment", () => {
         it("sets integer variables", () => {
             expectParse(["\\count0=1%"], () => {
-                doAssignment();
+                parseAssignment();
                 expect(getCount(0)).toEqual(1);
             });
 
             expectParse(["\\count255=1%"], () => {
-                doAssignment();
+                parseAssignment();
                 expect(getCount(255)).toEqual(1);
             });
 
             expectParse(["\\count0 1%"], () => {
-                doAssignment();
+                parseAssignment();
                 expect(getCount(0)).toEqual(1);
             });
 
             expectParse(["\\count0 1 %"], () => {
-                doAssignment();
+                parseAssignment();
                 expect(getCount(0)).toEqual(1);
+            });
+        });
+
+        it("sets catcodes", () => {
+            expectParse([
+                "\\catcode`@=11%",
+                "\\z@%",
+            ], () => {
+                parseAssignment();
+                expect(lexExpandedToken()).toEqual(new ControlSequence("z@"));
             });
         });
 
         it("sets chardef variables", () => {
             expectParse(["\\chardef\\a=97%"], () => {
-                doAssignment();
+                parseAssignment();
                 expect(getChardef(new ControlSequence("a"))).toEqual('a');
             });
         });
@@ -66,8 +68,8 @@ describe("assignments", () => {
                 "\\chardef\\a=5%",
                 "\\count0=\\a%",
             ], () => {
-                doAssignment();
-                doAssignment();
+                parseAssignment();
+                parseAssignment();
                 expect(getCount(0)).toEqual(5);
             });
         });
@@ -76,24 +78,24 @@ describe("assignments", () => {
     describe("arithmetic", () => {
         it("adds values", () => {
             expectParse(["\\count0=1 \\advance\\count0 by  2%"], () => {
-                doAssignment();
-                doAssignment();
+                parseAssignment();
+                parseAssignment();
                 expect(getCount(0)).toEqual(3);
             });
         });
 
         it("multiplies values", () => {
             expectParse(["\\count0=2 \\multiply\\count0 by4%"], () => {
-                doAssignment();
-                doAssignment();
+                parseAssignment();
+                parseAssignment();
                 expect(getCount(0)).toEqual(8);
             });
         });
 
         it("divides values", () => {
             expectParse(["\\count0=-20 \\divide\\count0 by6%"], () => {
-                doAssignment();
-                doAssignment();
+                parseAssignment();
+                parseAssignment();
                 expect(getCount(0)).toEqual(-3);
             });
         });
@@ -102,7 +104,7 @@ describe("assignments", () => {
     describe("macro assignment", () => {
         it("sets \\def macros", () => {
             expectParse(["\\def\\greet#1{hi #1}%"], () => {
-                doAssignment();
+                parseAssignment();
                 expect(getMacro(new ControlSequence("greet")))
                     .toEqual(new Macro(
                         [new Parameter(1)],
@@ -117,8 +119,8 @@ describe("assignments", () => {
 
         it("allows you to redefine macros", () => {
             expectParse(["\\def\\a{a}\\def\\a{b}%"], () => {
-                doAssignment();
-                doAssignment();
+                parseAssignment();
+                parseAssignment();
                 expect(getMacro(new ControlSequence("a")))
                     .toEqual(new Macro(
                         [],
@@ -132,7 +134,7 @@ describe("assignments", () => {
     describe("let assignment", () => {
         it("sets \\let values", () => {
             expectParse(["\\let\\x = x%"], () => {
-                doAssignment();
+                parseAssignment();
                 expect(getLet(new ControlSequence("x")))
                     .toEqual(new CharToken("x", Letter));
             });
@@ -140,8 +142,8 @@ describe("assignments", () => {
 
         it("\\lets values have other macro values", () => {
             expectParse(["\\def\\x{a}\\let\\y=\\x%"], () => {
-                doAssignment();
-                doAssignment();
+                parseAssignment();
+                parseAssignment();
                 const macro = new Macro(
                     [],
                     [new CharToken("a", Letter)]);
@@ -169,11 +171,11 @@ describe("assignments", () => {
                 "\\global\\count0=3%",
                 "}}%",
             ], () => {
-                doAssignment();
+                parseAssignment();
                 handleGroup();
-                doAssignment();
+                parseAssignment();
                 handleGroup();
-                doAssignment();
+                parseAssignment();
                 expect(getCount(0)).toEqual(3);
                 handleGroup();
                 expect(getCount(0)).toEqual(3);
@@ -191,11 +193,11 @@ describe("assignments", () => {
             ], () => {
                 const macro = new Macro([], [new CharToken("z", Letter)]);
 
-                doAssignment();
+                parseAssignment();
                 handleGroup();
-                doAssignment();
+                parseAssignment();
                 handleGroup();
-                doAssignment();
+                parseAssignment();
                 expect(getMacro(new ControlSequence("a"))).toEqual(macro);
                 handleGroup();
                 expect(getMacro(new ControlSequence("a"))).toEqual(macro);
@@ -214,11 +216,11 @@ describe("assignments", () => {
                 const xMacro = new Macro([], [new CharToken("x", Letter)]);
                 const yMacro = new Macro([], [new CharToken("y", Letter)]);
 
-                doAssignment();
+                parseAssignment();
                 handleGroup();
-                doAssignment();
+                parseAssignment();
                 handleGroup();
-                doAssignment();
+                parseAssignment();
                 expect(getMacro(new ControlSequence("a"))).toEqual(yMacro);
                 handleGroup();
                 expect(getMacro(new ControlSequence("a"))).toEqual(yMacro);

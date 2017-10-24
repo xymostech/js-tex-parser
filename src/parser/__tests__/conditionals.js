@@ -20,38 +20,30 @@ function expectParse(lines: string[], callback: () => void) {
     expect(lexExpandedToken()).toEqual(null);
 }
 
-function doAssignment() {
-    const tok = lexToken();
-    if (!tok) {
-        throw new Error("EOF");
-    }
-    parseAssignment(tok);
-}
-
 describe("conditionals", () => {
     it("parses single-body \\iftrues", () => {
         expectParse(["\\iftrue x\\fi%"], () => {
-            expandConditional(lexToken());
+            expandConditional();
             expect(lexExpandedToken()).toEqual(new CharToken("x", Letter));
         });
     });
 
     it("parses \\else-y \\iftrues", () => {
         expectParse(["\\iftrue x\\else y\\fi%"], () => {
-            expandConditional(lexToken());
+            expandConditional();
             expect(lexExpandedToken()).toEqual(new CharToken("x", Letter));
         });
     });
 
     it("parses single-body \\iffalses", () => {
         expectParse(["\\iffalse x\\fi%"], () => {
-            expandConditional(lexToken());
+            expandConditional();
         });
     });
 
     it("parses \\else-y \\iffalses", () => {
         expectParse(["\\iffalse x\\else y\\fi%"], () => {
-            expandConditional(lexToken());
+            expandConditional();
             expect(lexExpandedToken()).toEqual(new CharToken("y", Letter));
         });
     });
@@ -62,9 +54,9 @@ describe("conditionals", () => {
             "\\def\\b{z\\fi}%",
             "\\iftrue w\\a\\b\\fi%",
         ], () => {
-            doAssignment();
-            doAssignment();
-            expandConditional(lexToken());
+            parseAssignment();
+            parseAssignment();
+            expandConditional();
             expect(lexExpandedToken()).toEqual(new CharToken("w", Letter));
             expect(lexExpandedToken()).toEqual(new CharToken("x", Letter));
         });
@@ -73,47 +65,47 @@ describe("conditionals", () => {
     describe("\\ifnum", () => {
         it("parses plain number >", () => {
             expectParse(["\\ifnum 2>1 x\\fi%"], () => {
-                expandConditional(lexToken());
+                expandConditional();
                 expect(lexExpandedToken()).toEqual(new CharToken("x", Letter));
             });
 
             expectParse(["\\ifnum 1>2 x\\fi%"], () => {
-                expandConditional(lexToken());
+                expandConditional();
             });
         });
 
         it("parses plain number <", () => {
             expectParse(["\\ifnum 1<2 x\\fi%"], () => {
-                expandConditional(lexToken());
+                expandConditional();
                 expect(lexExpandedToken()).toEqual(new CharToken("x", Letter));
             });
 
             expectParse(["\\ifnum 2<1 x\\fi%"], () => {
-                expandConditional(lexToken());
+                expandConditional();
             });
         });
 
         it("parses plain number =", () => {
             expectParse(["\\ifnum 1=1 x\\fi%"], () => {
-                expandConditional(lexToken());
+                expandConditional();
                 expect(lexExpandedToken()).toEqual(new CharToken("x", Letter));
             });
 
             expectParse(["\\ifnum 2=1 x\\fi%"], () => {
-                expandConditional(lexToken());
+                expandConditional();
             });
         });
 
         it("parses variables", () => {
             expectParse(["\\ifnum\\count0>1 x\\fi%"], () => {
                 setCount(0, 2, false);
-                expandConditional(lexToken());
+                expandConditional();
                 expect(lexExpandedToken()).toEqual(new CharToken("x", Letter));
             });
 
             expectParse(["\\ifnum\\count0>2 x\\fi%"], () => {
                 setCount(0, 1, false);
-                expandConditional(lexToken());
+                expandConditional();
             });
         });
     });

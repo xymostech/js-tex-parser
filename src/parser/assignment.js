@@ -1,6 +1,6 @@
 // @flow
 import {Token, ControlSequence, CharToken} from "../Token.js";
-import {lexToken, unLexToken} from "../lexer.js";
+import {lexToken, tryLexTokens} from "../lexer.js";
 import {
     parseNumberValue, parseEquals,
     parseOptionalExplicitChars, parseOptionalSpaces,
@@ -10,7 +10,7 @@ import {Active, Space, Other} from "../Category.js";
 import {parseDefinitionText} from "./macros.js";
 import {isVariableHead, parseVariable} from "./variables.js";
 import {IntegerVariable} from "../Variable.js";
-import {lexExpandedToken} from "../expand.js";
+import {lexExpandedToken, peekExpandedToken} from "../expand.js";
 
 /*
  * Assignments are:
@@ -78,12 +78,11 @@ import {lexExpandedToken} from "../expand.js";
  *    - <prefix> = \global, \long, \outer
  */
 
-function isVariableAssignmentHead(tok) {
-    return isVariableHead(tok);
+function isVariableAssignmentHead() {
+    return isVariableHead();
 }
 
-function parseVariableAssignment(tok, global) {
-    unLexToken(tok);
+function parseVariableAssignment(global) {
     const variable = parseVariable();
     if (variable instanceof IntegerVariable) {
         parseEquals();
@@ -98,14 +97,21 @@ const ADVANCE = new ControlSequence("advance");
 const MULTIPLY = new ControlSequence("multiply");
 const DIVIDE = new ControlSequence("divide");
 
-function isArithmeticHead(tok) {
-    return tok.equals(ADVANCE) || tok.equals(MULTIPLY) || tok.equals(DIVIDE);
+function isArithmeticHead(): boolean {
+    const tok = peekExpandedToken();
+    return !!tok && (
+        tok.equals(ADVANCE) ||
+        tok.equals(MULTIPLY) ||
+        tok.equals(DIVIDE));
 }
 
-function parseArithmetic(tok, global) {
+function parseArithmetic(global) {
+    const tok = lexExpandedToken();
     const variable = parseVariable();
 
-    if (tok.equals(ADVANCE)) {
+    if (!tok) {
+        throw new Error("EOF found while parsing arithmetic");
+    } else if (tok.equals(ADVANCE)) {
         if (variable instanceof IntegerVariable) {
             parseOptionalExplicitChars("by");
             parseOptionalSpaces();
@@ -141,12 +147,16 @@ function parseArithmetic(tok, global) {
 const LET = new ControlSequence("let");
 const FUTURELET = new ControlSequence("futurelet");
 
-function isLetAssignmentHead(tok) {
-    return tok.equals(LET) || tok.equals(FUTURELET);
+function isLetAssignmentHead(): boolean {
+    const tok = peekExpandedToken();
+    return !!tok && (
+        tok.equals(LET) ||
+        tok.equals(FUTURELET));
 }
 
-function parseLetAssignment(tok, global) {
-    if (tok.equals(LET)) {
+function parseLetAssignment(global) {
+    const tok = lexExpandedToken();
+    if (tok && tok.equals(LET)) {
         const set = parseControlSequenceUnexpanded();
         // Because we don't want to expand macros here, instead of using
         // `parseEquals()` and `parseOptionalSpace()` we parse ourselves.
@@ -186,27 +196,28 @@ const EDEF = new ControlSequence("edef");
 const GDEF = new ControlSequence("gdef");
 const XDEF = new ControlSequence("xdef");
 
-function isNonMacroAssignmentHead(tok) {
+function isNonMacroAssignmentHead(): boolean {
     return (
-        isLetAssignmentHead(tok) ||
-        isArithmeticHead(tok) ||
-        isVariableAssignmentHead(tok));
+        isLetAssignmentHead() ||
+        isArithmeticHead() ||
+        isVariableAssignmentHead());
 }
 
-function parseNonMacroAssignment(tok, global) {
-    if (isVariableAssignmentHead(tok)) {
-        parseVariableAssignment(tok, global);
-    } else if (isLetAssignmentHead(tok)) {
-        parseLetAssignment(tok, global);
-    } else if (isArithmeticHead(tok)) {
-        parseArithmetic(tok, global);
+function parseNonMacroAssignment(global) {
+    if (isVariableAssignmentHead()) {
+        parseVariableAssignment(global);
+    } else if (isLetAssignmentHead()) {
+        parseLetAssignment(global);
+    } else if (isArithmeticHead()) {
+        parseArithmetic(global);
     } else {
         throw new Error("unimplemented");
     }
 }
 
-function isMacroAssignmentHead(tok) {
-    return (
+function isMacroAssignmentHead(): boolean {
+    const tok = peekExpandedToken();
+    return !!tok && (
         tok.equals(DEF) ||
         tok.equals(EDEF) ||
         tok.equals(GDEF) ||
@@ -228,8 +239,11 @@ function parseControlSequenceUnexpanded() {
     }
 }
 
-function parseMacroAssignment(tok, global) {
-    if (tok.equals(DEF) || tok.equals(GDEF)) {
+function parseMacroAssignment(global) {
+    const tok = lexExpandedToken();
+    if (!tok) {
+        throw new Error("EOF found");
+    } else if (tok.equals(DEF) || tok.equals(GDEF)) {
         const set = parseControlSequenceUnexpanded();
         const macro = parseDefinitionText();
 
@@ -241,47 +255,48 @@ function parseMacroAssignment(tok, global) {
 
 const GLOBAL = new ControlSequence("global");
 
-export function isAssignmentHead(tok: Token) {
-    return (
+export function isAssignmentHead(): boolean {
+    const tok = peekExpandedToken();
+    return !!tok && (
         tok.equals(GLOBAL) ||
-        isNonMacroAssignmentHead(tok) ||
-        isMacroAssignmentHead(tok));
+        isNonMacroAssignmentHead() ||
+        isMacroAssignmentHead());
 }
 
-function parseAssignmentGlobal(tok: Token) {
-    if (tok.equals(GLOBAL)) {
-        const start = lexExpandedToken();
-        if (!start) {
-            throw new Error("EOF");
-        } else if (!isAssignmentHead(start)) {
-            throw new Error("non-macro-head found after \\global");
-        } else {
-            parseAssignmentGlobal(start);
-        }
-    } else if (isNonMacroAssignmentHead(tok)) {
-        parseNonMacroAssignment(tok, true);
-    } else if (isMacroAssignmentHead(tok)) {
-        parseMacroAssignment(tok, true);
+function parseAssignmentGlobal() {
+    if (isNonMacroAssignmentHead()) {
+        parseNonMacroAssignment(true);
+    } else if (isMacroAssignmentHead()) {
+        parseMacroAssignment(true);
     } else {
-        throw new Error("non-macro head found in global assignment");
+        const tok = lexExpandedToken();
+        if (tok && tok.equals(GLOBAL)) {
+            if (!isAssignmentHead()) {
+                throw new Error("non-macro-head found after \\global");
+            } else {
+                parseAssignmentGlobal();
+            }
+        } else {
+            throw new Error("non-macro head found in global assignment");
+        }
     }
 }
 
-export function parseAssignment(tok: Token) {
-    if (tok.equals(GLOBAL)) {
-        const start = lexExpandedToken();
-        if (!start) {
-            throw new Error("EOF");
-        } else if (!isAssignmentHead(start)) {
-            throw new Error("non-macro-head found after \\global");
-        } else {
-            parseAssignmentGlobal(start);
-        }
-    } else if (isNonMacroAssignmentHead(tok)) {
-        parseNonMacroAssignment(tok, false);
-    } else if (isMacroAssignmentHead(tok)) {
-        parseMacroAssignment(tok, false);
+export function parseAssignment() {
+    if (isNonMacroAssignmentHead()) {
+        parseNonMacroAssignment(false);
+    } else if (isMacroAssignmentHead()) {
+        parseMacroAssignment(false);
     } else {
-        throw new Error("non-macro-head tok passed to parseAssignment");
+        const tok = lexExpandedToken();
+        if (tok && tok.equals(GLOBAL)) {
+            if (!isAssignmentHead()) {
+                throw new Error("non-macro-head found after \\global");
+            } else {
+                parseAssignmentGlobal();
+            }
+        } else {
+            throw new Error("non-macro-head tok passed to parseAssignment");
+        }
     }
 }

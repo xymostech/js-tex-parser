@@ -1,5 +1,6 @@
 // The executable tex parser
 import {setSource} from "./lexer.js";
+import {lexExpandedToken} from "./expand.js";
 import parseHorizontalList, {HBoxChar} from "./parser/horizontalList.js";
 
 process.stdin.setEncoding('utf8');
@@ -10,7 +11,7 @@ process.stdin.on('data', (chunk) => {
 });
 process.stdin.on('end', () => {
     setSource(source.split('\n'));
-    const result = parseHorizontalList();
+    const result = parseHorizontalList(lexExpandedToken());
 
     result.forEach(r => {
         if (r instanceof HBoxChar) {

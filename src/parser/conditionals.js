@@ -1,5 +1,6 @@
-import {Token, CharToken, ControlSequence} from "../Token.js";
-import {lexToken} from "../lexer.js";
+// @flow
+import {CharToken, ControlSequence} from "../Token.js";
+import {lexToken, peekToken} from "../lexer.js";
 import {lexExpandedToken} from "../expand.js";
 import {parseNumberValue} from "./primitives.js";
 import {Other} from "../Category.js";
@@ -10,8 +11,9 @@ const IFFALSE = new ControlSequence("iffalse");
 const FI = new ControlSequence("fi");
 const ELSE = new ControlSequence("else");
 
-export function isConditionalHead(tok: Token): boolean {
-    return (
+export function isConditionalHead(): boolean {
+    const tok = peekToken();
+    return !!tok && (
         tok.equals(ELSE) ||
         tok.equals(FI) ||
         tok.equals(IFNUM) ||
@@ -55,8 +57,11 @@ function handleFalse() {
     }
 }
 
-export function expandConditional(tok: Token) {
-    if (tok.equals(FI)) {
+export function expandConditional() {
+    const tok = lexToken();
+    if (!tok) {
+        throw new Error("EOF found parsing conditional");
+    } else if (tok.equals(FI)) {
         conditionalLevels.pop();
     } else if (tok.equals(ELSE)) {
         conditionalLevels.pop();

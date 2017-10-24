@@ -1,35 +1,64 @@
 // @flow
 import {Token, CharToken, ControlSequence} from "../Token.js";
-import {lexToken, unLexToken} from "../lexer.js";
-import {lexExpandedToken} from "../expand.js";
+import {lexToken, tryLexTokens} from "../lexer.js";
+import {lexExpandedToken, peekExpandedToken} from "../expand.js";
 import {getChardef} from "../state.js";
 import {Space, Other, BeginGroup, EndGroup} from "../Category.js";
 import {isVariableHead, parseVariable} from "./variables.js";
 import {IntegerVariable} from "../Variable.js";
 
-export function parseOptionalSpaces() {
-    let tok = lexExpandedToken();
-    while (tok && tok instanceof CharToken && tok.category === Space) {
-        tok = lexExpandedToken();
+function parseWhile(
+    check: (t: ?Token) => boolean,
+    pass?: (t: ?Token) => void,
+    ensureOne: boolean = false
+) {
+    let cont = true;
+    let count = 0;
+    while (cont) {
+        cont = tryLexTokens((accept, reject) => {
+            const tok = lexExpandedToken();
+            if (check(tok)) {
+                count++;
+                pass && pass(tok);
+                return accept(true);
+            } else {
+                return reject(false);
+            }
+        });
     }
-    unLexToken(tok);
+    if (ensureOne && count === 0) {
+        throw new Error("Needed at least one parsed token");
+    }
+}
+
+export function parseOptionalSpaces() {
+    parseWhile(
+        tok => !!tok &&
+            tok instanceof CharToken &&
+            tok.category === Space);
 }
 
 const EQUALS = new CharToken("=", Other);
 
 export function parseEquals() {
     parseOptionalSpaces();
-    const tok = lexExpandedToken();
-    if (tok && !tok.equals(EQUALS)) {
-        unLexToken(tok);
-    }
+    tryLexTokens((accept, reject) => {
+        const tok = lexExpandedToken();
+        if (tok && !tok.equals(EQUALS)) {
+            return reject();
+        }
+        return accept();
+    });
 }
 
 export function parseOptionalSpace() {
-    const tok = lexExpandedToken();
-    if (!(tok && tok instanceof CharToken && tok.category === Space)) {
-        unLexToken(tok);
-    }
+    tryLexTokens((accept, reject) => {
+        const tok = lexExpandedToken();
+        if (tok && tok instanceof CharToken && tok.category === Space) {
+            return accept();
+        }
+        return reject();
+    });
 }
 
 const PLUS = new CharToken("+", Other);
@@ -37,26 +66,25 @@ const MINUS = new CharToken("-", Other);
 
 function parseOptionalSigns(): number {
     let sign = 1;
-    let tok = lexExpandedToken();
-    while (tok && (tok.equals(PLUS) || tok.equals(MINUS))) {
-        if (tok.equals(MINUS)) {
-            sign *= -1;
-        }
-        tok = lexExpandedToken();
-    }
-    unLexToken(tok);
+    parseWhile(
+        tok => !!tok && (tok.equals(PLUS) || tok.equals(MINUS)),
+        tok => {
+            if (tok && tok.equals(MINUS)) {
+                sign *= -1;
+            }
+        });
     parseOptionalSpaces();
     return sign;
 }
 
-function isDigit(tok): boolean {
+function isDigit(tok: Token): boolean {
     return (
         tok instanceof CharToken &&
         tok.category === Other &&
         tok.ch >= "0" && tok.ch <= "9");
 }
 
-function digitValue(tok): number {
+function digitValue(tok: Token): number {
     if (!(tok instanceof CharToken) || !isDigit(tok)) {
         throw new Error("non-digit in digitValue");
     }
@@ -64,19 +92,25 @@ function digitValue(tok): number {
     return tok.ch.charCodeAt(0) - "0".charCodeAt(0);
 }
 
+function isIntegerConstantHead(): boolean {
+    const tok = peekExpandedToken();
+    return !!tok && isDigit(tok);
+}
+
 function parseIntegerConstant(): number {
-    let value = 0;
-    let tok = lexExpandedToken();
-
+    const tok = lexExpandedToken();
     if (!tok || !isDigit(tok)) {
-        throw new Error(`Invalid number!`);
+        throw new Error("Invalid number start");
     }
+    let value = digitValue(tok);
 
-    while (tok && isDigit(tok)) {
-        value = 10 * value + digitValue(tok);
-        tok = lexExpandedToken();
-    }
-    unLexToken(tok);
+    parseWhile(
+        tok => !!tok && isDigit(tok),
+        tok => {
+            if (tok) {
+                value = 10 * value + digitValue(tok);
+            }
+        });
     parseOptionalSpace();
 
     return value;
@@ -103,8 +137,11 @@ function parseCharToken(): number {
 const COUNT = new ControlSequence("count");
 const CATCODE = new ControlSequence("catcode");
 
-function isInternalIntegerHead(tok: Token): boolean {
-    if (
+function isInternalIntegerHead(): boolean {
+    const tok = peekExpandedToken();
+    if (!tok) {
+        return false;
+    } else if (
         tok.equals(COUNT) ||
         tok.equals(CATCODE)
     ) {
@@ -117,12 +154,7 @@ function isInternalIntegerHead(tok: Token): boolean {
 }
 
 function parseInternalInteger(): number {
-    const tok = lexExpandedToken();
-
-    if (!tok) {
-        throw new Error("EOF");
-    } else if (isVariableHead(tok)) {
-        unLexToken(tok);
+    if (isVariableHead()) {
         const variable = parseVariable();
         // TODO(emily): Not all variables?
         if (variable instanceof IntegerVariable) {
@@ -132,6 +164,10 @@ function parseInternalInteger(): number {
                 "Got invalid variable type looking for integer variable");
         }
     } else {
+        const tok = lexExpandedToken();
+        if (!tok) {
+            throw new Error("EOF while parsing internal integer");
+        }
         const charDefVal = getChardef(tok);
         if (charDefVal != null) {
             return charDefVal.charCodeAt(0);
@@ -146,22 +182,24 @@ const HEX_PREFIX = new CharToken("\"", Other);
 const CHAR_PREFIX = new CharToken("`", Other);
 
 function parseUnsignedNumber(): number {
-    const tok = lexExpandedToken();
-
-    if (!tok) {
-        throw new Error("missing token at beginning of number");
-    } else if (tok.equals(OCTAL_PREFIX)) {
-        throw new Error("unimplemented");
-    } else if (tok.equals(HEX_PREFIX)) {
-        throw new Error("unimplemented");
-    } else if (tok.equals(CHAR_PREFIX)) {
-        return parseCharToken();
-    } else if (isInternalIntegerHead(tok)) {
-        unLexToken(tok);
+    if (isInternalIntegerHead()) {
         return parseInternalInteger();
-    } else {
-        unLexToken(tok);
+    } else if (isIntegerConstantHead()) {
         return parseIntegerConstant();
+    } else {
+        const tok = lexExpandedToken();
+
+        if (!tok) {
+            throw new Error("missing token at beginning of number");
+        } else if (tok.equals(OCTAL_PREFIX)) {
+            throw new Error("unimplemented");
+        } else if (tok.equals(HEX_PREFIX)) {
+            throw new Error("unimplemented");
+        } else if (tok.equals(CHAR_PREFIX)) {
+            return parseCharToken();
+        } else {
+            throw new Error("unimplemented");
+        }
     }
 }
 
@@ -180,12 +218,7 @@ export function parse8BitNumber(): number {
 }
 
 export function parseNumberValue(): number {
-    const tok = lexExpandedToken();
-
-    unLexToken(tok);
-    if (!tok) {
-        throw new Error("EOF");
-    } else if (isVariableHead(tok)) {
+    if (isVariableHead()) {
         const variable = parseVariable();
         if (variable instanceof IntegerVariable) {
             return variable.getValue();
@@ -224,26 +257,28 @@ export function parseExplicitChars(chars: string) {
 export function parseOptionalExplicitChars(chars: string) {
     parseOptionalSpaces();
 
-    for (let i = 0; i < chars.length; i++) {
+    let good = true;
+    for (let i = 0; good && i < chars.length; i++) {
         const char = chars[i];
-        const tok = lexExpandedToken();
+        good = tryLexTokens((accept, reject) => {
+            const tok = lexExpandedToken();
 
-        if (
-            tok instanceof CharToken &&
-            (tok.ch === char.toLowerCase() ||
-             tok.ch === char.toUpperCase())
-        ) {
-            continue;
-        } else if (i === 0) {
-            unLexToken(tok);
-            return;
-        } else if (!tok) {
-            throw new Error("EOF encountered while parsing explicit chars");
-        } else {
-            throw new Error(
-                `Invalid token ${tok.toString()} found while looking for ` +
-                `explicit ${char}`);
-        }
+            if (
+                tok instanceof CharToken &&
+                (tok.ch === char.toLowerCase() ||
+                 tok.ch === char.toUpperCase())
+            ) {
+                return accept(true);
+            } else if (i === 0) {
+                return reject(false);
+            } else if (!tok) {
+                throw new Error("EOF encountered while parsing explicit chars");
+            } else {
+                throw new Error(
+                    `Invalid token ${tok.toString()} found while looking for ` +
+                    `explicit ${char}`);
+            }
+        });
     }
 }
 
@@ -251,24 +286,30 @@ export function parseBalancedText(): Token[] {
     const result: Token[] = [];
     let braceLevel = 0;
 
-    let tok = lexExpandedToken();
-    while (
-        tok &&
-        (braceLevel > 0 ||
-         !(tok instanceof CharToken && tok.category === EndGroup))
-    ) {
-        if (tok instanceof CharToken && tok.category === BeginGroup) {
-            result.push(tok);
-            braceLevel++;
-        } else if (tok instanceof CharToken && tok.category === EndGroup) {
-            result.push(tok);
-            braceLevel--;
-        } else {
-            result.push(tok);
-        }
-        tok = lexExpandedToken();
+    let good = true;
+    while (good) {
+        good = tryLexTokens((accept, reject) => {
+            const tok = lexExpandedToken();
+            if (!tok) {
+                return reject(false);
+            } else if (tok instanceof CharToken && tok.category === BeginGroup) {
+                result.push(tok);
+                braceLevel++;
+                return accept(true);
+            } else if (tok instanceof CharToken && tok.category === EndGroup) {
+                if (braceLevel === 0) {
+                    return reject(false);
+                } else {
+                    result.push(tok);
+                    braceLevel--;
+                    return accept(true);
+                }
+            } else {
+                result.push(tok);
+                return accept(true);
+            }
+        });
     }
 
-    unLexToken(tok);
     return result;
 }

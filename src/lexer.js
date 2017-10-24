@@ -13,28 +13,38 @@ const BEGINNING_LINE = Symbol("beginning line");
 const MIDDLE_LINE = Symbol("middle line");
 const SKIPPING_BLANKS = Symbol("skipping blanks");
 
+let nextTokens: Token[] = [];
+
 let source: string[] = [];
+
+let row: number;
+let col: number;
+
 let state = BEGINNING_LINE;
 
 export function setSource(lines: string[]) {
     source = lines.map(line => line + "\n");
+    row = 0;
+    col = 0;
     state = BEGINNING_LINE;
+    nextTokens = [];
 }
 
 function getPlainChar(): typeof EOF | typeof EOL | string {
-    if (source.length === 0) {
+    if (row === source.length) {
         return EOF;
     }
 
-    const line = source[0];
+    const line = source[row];
 
-    if (line.length === 0) {
-        source = source.slice(1);
+    if (col === line.length) {
+        row++;
+        col = 0;
         return EOL;
     }
 
-    const ch = line[0];
-    source[0] = line.slice(1);
+    const ch = line[col];
+    col++;
     return ch;
 }
 
@@ -42,11 +52,10 @@ function unGetChar(c: typeof EOF | typeof EOL | string) {
     if (c === EOF) {
         return;
     } else if (c === EOL) {
-        source.unshift("");
-    } else if (source.length === 0) {
-        source = [c];
+        row--;
+        col = source[row].length - 1;
     } else {
-        source[0] = c + source[0];
+        col--;
     }
 }
 
@@ -64,9 +73,17 @@ function hexValue(c: string): number {
     }
 }
 
-function getChar() {
+function getChar(): typeof EOF | typeof EOL | string {
     const first = getPlainChar();
 
+    if (first === EOF || first === EOL) {
+        return first;
+    }
+
+    return getCharWithFirst(first);
+}
+
+function getCharWithFirst(first: string): typeof EOF | typeof EOL | string {
     if (isSuperscript(first)) {
         const second = getPlainChar();
 
@@ -81,18 +98,17 @@ function getChar() {
                 const nextnext = getPlainChar();
 
                 if (isHexChar(next) && isHexChar(nextnext)) {
-                    unGetChar(
+                    return getCharWithFirst(
                         String.fromCharCode(hexValue(next) * 16 +
                         hexValue(nextnext)));
-                    return getChar();
                 } else if (next <= "?") {
                     unGetChar(nextnext);
-                    unGetChar(String.fromCharCode(next.charCodeAt(0) + 0x40));
-                    return getChar();
+                    return getCharWithFirst(
+                        String.fromCharCode(next.charCodeAt(0) + 0x40));
                 } else {
                     unGetChar(nextnext);
-                    unGetChar(String.fromCharCode(next.charCodeAt(0) - 0x40));
-                    return getChar();
+                    return getCharWithFirst(
+                        String.fromCharCode(next.charCodeAt(0) - 0x40));
                 }
             }
         } else {
@@ -136,20 +152,80 @@ function isInvalid(c) {
     return getCategory(c) === Invalid;
 }
 
-const unlexedToks: Token[] = [];
+export function pushNextToken(tok: Token) {
+    nextTokens.unshift(tok);
+}
+
+const ACCEPT = Symbol("accept");
+const REJECT = Symbol("reject");
+
+type AcceptOrRejectValue<T> = {
+    kind: typeof ACCEPT | typeof REJECT,
+    value: T,
+};
+
+function accept<T>(value: T): AcceptOrRejectValue<T> {
+    return {
+        kind: ACCEPT,
+        value,
+    };
+}
+
+function reject<T>(value: T): AcceptOrRejectValue<T> {
+    return {
+        kind: REJECT,
+        value,
+    };
+}
+
+export function tryLexTokens<T>(
+    cb: (
+        accept: (T) => AcceptOrRejectValue<T>,
+        reject: (T) => AcceptOrRejectValue<T>
+    ) => AcceptOrRejectValue<T>,
+): T {
+    const holdRow = row;
+    const holdCol = col;
+    const holdNextTokens = nextTokens.slice();
+    const holdState = state;
+
+    const result = cb(accept, reject);
+
+    if (result && result.kind === REJECT) {
+        row = holdRow;
+        col = holdCol;
+        nextTokens = holdNextTokens;
+        state = holdState;
+        return result.value;
+    } else if (result && result.kind === ACCEPT) {
+        return result.value;
+    } else {
+        throw new Error("Must return accept() or reject() out of tryLexTokens");
+    }
+}
+
+export function peekToken(): ?Token {
+    return tryLexTokens((accept, reject) => {
+        return reject(lexToken());
+    });
+}
 
 export function lexToken(): ?Token {
-    if (unlexedToks.length > 0) {
-        return unlexedToks.pop();
+    if (nextTokens.length > 0) {
+        return nextTokens.shift();
     }
 
+    return lexTokenInner();
+}
+
+export function lexTokenInner(): ?Token {
     const start = getChar();
 
     if (start === EOF) {
         return null;
     } else if (start === EOL) {
         state = BEGINNING_LINE;
-        return lexToken();
+        return lexTokenInner();
     } else if (isInvalid(start)) {
         throw new Error(`Invalid character found: ${start}`);
     } else if (isEscape(start)) {
@@ -180,28 +256,22 @@ export function lexToken(): ?Token {
         } else if (state === MIDDLE_LINE) {
             return new CharToken(" ", Space);
         } else if (state === SKIPPING_BLANKS) {
-            return lexToken();
+            return lexTokenInner();
         }
     } else if (isSpace(start)) {
         if (state === MIDDLE_LINE) {
             state = SKIPPING_BLANKS;
             return new CharToken(" ", Space);
         } else {
-            return lexToken();
+            return lexTokenInner();
         }
     } else if (isComment(start)) {
-        source[0] = "";
-        return lexToken();
+        col = source[row].length;
+        return lexTokenInner();
     } else if (isIgnored(start)) {
-        return lexToken();
+        return lexTokenInner();
     } else {
         state = MIDDLE_LINE;
         return new CharToken(start, getCategory(start));
-    }
-}
-
-export function unLexToken(tok: ?Token) {
-    if (tok) {
-        unlexedToks.push(tok);
     }
 }

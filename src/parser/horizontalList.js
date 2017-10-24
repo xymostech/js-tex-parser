@@ -1,5 +1,5 @@
 // @flow
-import {unLexToken} from "../lexer.js";
+import {tryLexTokens} from "../lexer.js";
 import {lexExpandedToken} from "../expand.js";
 import {Letter, Other, Space, BeginGroup, EndGroup} from "../Category.js";
 import {CharToken, ControlSequence} from "../Token.js";
@@ -35,44 +35,65 @@ export class HPenalty extends HorizontalListElem {
     }
 }
 
+
 export default function parseHorizontalList() {
     const result = [];
 
     let groupLevel = 0;
 
-    let tok = lexExpandedToken();
-    while (tok) {
-        if (tok instanceof CharToken) {
-            if (
-                tok.category === Letter ||
-                tok.category === Other
-            ) {
-                result.push(new HBoxChar(tok.ch));
-            } else if (tok.category === Space) {
-                result.push(new HBoxChar(" "));
-            } else if (tok.category === BeginGroup) {
-                groupLevel++;
-                pushGroup();
-            } else if (tok.category === EndGroup) {
-                if (groupLevel === 0) {
-                    unLexToken(tok);
-                    break;
+    function parseHorizontalListElem() {
+        const [checked, finished] = tryLexTokens((accept, reject) => {
+            const tok = lexExpandedToken();
+            if (!tok) {
+                return reject([true, true]);
+            } else if (tok instanceof CharToken && tok.category === EndGroup && groupLevel === 0) {
+                // If this fails, we'll end up with the loop ending.
+                return reject([true, true]);
+            } else if (tok instanceof CharToken) {
+                if (
+                    tok.category === Letter ||
+                    tok.category === Other
+                ) {
+                    result.push(new HBoxChar(tok.ch));
+                } else if (tok.category === Space) {
+                    result.push(new HBoxChar(" "));
+                } else if (tok.category === BeginGroup) {
+                    groupLevel++;
+                    pushGroup();
+                } else if (tok.category === EndGroup) {
+                    if (groupLevel === 0) {
+                        throw new Error("This should have been handled below!");
+                    } else {
+                        groupLevel--;
+                        popGroup();
+                    }
                 } else {
-                    groupLevel--;
-                    popGroup();
+                    throw new Error("unimplemented");
                 }
+                return accept([true, false]);
+            } else if (tok.equals(new ControlSequence("par"))) {
+                result.push(new HBoxChar(" "));
+                return accept([true, false]);
             } else {
-                throw new Error("unimplemented");
+                return reject([false, false]);
             }
-        } else if (tok.equals(new ControlSequence("par"))) {
-            result.push(new HBoxChar(" "));
-        } else if (isAssignmentHead(tok)) {
-            parseAssignment(tok);
+        });
+        if (finished) {
+            return false;
+        } else if (checked) {
+            return true;
+        } else if (isAssignmentHead()) {
+            parseAssignment();
+            return true;
         } else {
-            throw new Error(`unimplemented ${tok && tok.toString()}`);
+            throw new Error("unimplemented");
         }
-        tok = lexExpandedToken();
     }
+
+    let done;
+    do {
+        done = parseHorizontalListElem();
+    } while (done);
 
     return result;
 }
